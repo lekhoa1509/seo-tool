@@ -15,20 +15,20 @@ import {
 
 const navItems = [
   {
-    label: 'Dashboard',
+    label: 'Tổng quan',
     path: '/dashboard',
     icon: LayoutDashboard,
     color: 'text-indigo-500',
   },
   {
-    label: 'Keyword Research',
+    label: 'Nghiên cứu từ khóa',
     path: '/keywords',
     icon: Search,
     color: 'text-blue-500',
     badge: 'AI',
   },
   {
-    label: 'Technical Audit',
+    label: 'Kiểm tra kỹ thuật',
     path: '/audit',
     icon: Globe,
     color: 'text-emerald-500',
@@ -42,14 +42,14 @@ const navItems = [
     badge: 'AI',
   },
   {
-    label: 'Content Optimization',
+    label: 'Tối ưu nội dung',
     path: '/content',
     icon: FileText,
     color: 'text-purple-500',
     badge: 'AI',
   },
   {
-    label: 'Blog Writer',
+    label: 'Viết blog AI',
     path: '/blog',
     icon: PenTool,
     color: 'text-pink-500',
@@ -76,7 +76,7 @@ export default function Sidebar({ onClose }) {
           </div>
           <div>
             <div className="font-bold text-slate-800 text-sm leading-none">SEO Pro</div>
-            <div className="text-xs text-slate-400 mt-0.5">AI-Powered Tool</div>
+            <div className="text-xs text-slate-400 mt-0.5">Công cụ SEO AI</div>
           </div>
         </div>
         <button
@@ -90,7 +90,7 @@ export default function Sidebar({ onClose }) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
         <div className="px-3 mb-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tools</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Công cụ</p>
         </div>
 
         {navItems.map((item) => {
@@ -132,10 +132,10 @@ export default function Sidebar({ onClose }) {
             <span className="text-xs font-semibold text-primary-700">GPT-4.1 Mini</span>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Powered by OpenAI's latest model for intelligent SEO analysis
+            Vận hành bởi mô hình mới nhất của OpenAI cho phân tích SEO thông minh
           </p>
         </div>
-        <p className="text-center text-xs text-slate-400 mt-3">SEO Pro Tool v1.0</p>
+        <p className="text-center text-xs text-slate-400 mt-3">SEO Pro v1.0</p>
       </div>
     </div>
   );

@@ -15,9 +15,51 @@ const parseMetricValue = (value) => {
 };
 
 const formatMetricValue = (value, suffix = '') => {
-  if (value === null || value === undefined || value === '') return 'N/A';
+  if (value === null || value === undefined || value === '') return 'Không có';
   if (typeof value === 'number') return `${value.toLocaleString()}${suffix}`;
   return `${value}${suffix}`;
+};
+
+const translateDifficulty = (value) => {
+  const labels = {
+    easy: 'Dễ',
+    medium: 'Trung bình',
+    hard: 'Khó',
+  };
+
+  return labels[String(value).toLowerCase()] || value;
+};
+
+const translateImpact = (value) => {
+  const labels = {
+    high: 'Cao',
+    medium: 'Trung bình',
+    low: 'Thấp',
+  };
+
+  return labels[String(value).toLowerCase()] || value;
+};
+
+const translateContentType = (value) => {
+  const labels = {
+    blog: 'Bài blog',
+    guide: 'Hướng dẫn',
+    tool: 'Công cụ',
+    comparison: 'So sánh',
+  };
+
+  return labels[String(value).toLowerCase()] || value;
+};
+
+const translateBacklinkType = (value) => {
+  const labels = {
+    'guest post': 'Bài guest post',
+    'resource page': 'Trang tài nguyên',
+    'broken link': 'Liên kết gãy',
+    directory: 'Danh bạ',
+  };
+
+  return labels[String(value).toLowerCase()] || value;
 };
 
 const metricToneClasses = {
@@ -67,7 +109,7 @@ const MetricCard = ({ label, yours, theirs, higherIsBetter = true }) => {
         <div className={`text-lg font-bold ${better ? 'text-emerald-600' : 'text-red-500'}`}>
           {formatMetricValue(yours)}
         </div>
-        <div className="text-xs text-slate-400 pb-0.5">vs {formatMetricValue(theirs)}</div>
+        <div className="text-xs text-slate-400 pb-0.5">so với {formatMetricValue(theirs)}</div>
       </div>
     </div>
   );
@@ -120,7 +162,7 @@ const GapInsight = ({ label, yours, theirs }) => {
           <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
           <div className={`font-semibold mt-1 ${titleClass}`}>
             {isEqual
-              ? 'Ngang bằng với domain của bạn'
+              ? 'Ngang bằng với tên miền của bạn'
               : `${competitorAhead ? 'Nhỉnh hơn' : 'Thấp hơn'} ${difference.toLocaleString()}`}
           </div>
           <div className="text-xs text-slate-500 mt-1">
@@ -182,9 +224,9 @@ const TopKeywordTable = ({ keywords }) => {
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
           <Search size={14} className="text-blue-500" />
-          Top keywords
+          Từ khóa nổi bật
         </div>
-        <span className="text-xs text-slate-400">{rows.length > 0 ? `Top ${rows.length}` : 'Chưa có dữ liệu'}</span>
+        <span className="text-xs text-slate-400">{rows.length > 0 ? `${rows.length} từ khóa` : 'Chưa có dữ liệu'}</span>
       </div>
 
       {rows.length > 0 ? (
@@ -195,13 +237,13 @@ const TopKeywordTable = ({ keywords }) => {
                 <div className="min-w-0">
                   <div className="font-medium text-slate-800">{keyword.keyword}</div>
                   <div className="text-xs text-slate-500 mt-1">
-                    Vol: {formatMetricValue(keyword.volume)} | Traffic: {formatMetricValue(keyword.traffic)}
+                    Lượng tìm kiếm: {formatMetricValue(keyword.volume)} | Lưu lượng: {formatMetricValue(keyword.traffic)}
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="text-xs text-slate-400">Position</div>
+                  <div className="text-xs text-slate-400">Vị trí</div>
                   <div className="font-semibold text-blue-600">
-                    {keyword.position === null || keyword.position === undefined ? 'N/A' : `#${formatMetricValue(keyword.position)}`}
+                    {keyword.position === null || keyword.position === undefined ? 'Không có' : `#${formatMetricValue(keyword.position)}`}
                   </div>
                 </div>
               </div>
@@ -279,7 +321,7 @@ export default function CompetitorAnalysis() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="label">Domain của bạn *</label>
+              <label className="label">Tên miền của bạn *</label>
               <input
                 type="text"
                 className="input"
@@ -294,7 +336,7 @@ export default function CompetitorAnalysis() {
               <input
                 type="text"
                 className="input"
-                placeholder="vd: SEO tools, digital marketing..."
+                placeholder="vd: công cụ SEO, marketing số..."
                 value={form.targetKeyword}
                 onChange={(e) => setForm({ ...form, targetKeyword: e.target.value })}
               />
@@ -302,7 +344,7 @@ export default function CompetitorAnalysis() {
           </div>
 
           <div>
-            <label className="label">Domains đối thủ *</label>
+            <label className="label">Tên miền đối thủ *</label>
             <div className="space-y-2">
               {form.competitors.map((comp, i) => (
                 <div key={i} className="flex gap-2">
@@ -360,9 +402,9 @@ export default function CompetitorAnalysis() {
             {['overview', 'gaps', 'content', 'backlinks', 'action'].map((tab) => {
               const labels = {
                 overview: 'Tổng quan',
-                gaps: 'Keyword Gaps',
-                content: 'Content Gaps',
-                backlinks: 'Backlinks',
+                gaps: 'Khoảng trống từ khóa',
+                content: 'Khoảng trống nội dung',
+                backlinks: 'Backlink',
                 action: 'Kế hoạch',
               };
               return (
@@ -386,30 +428,30 @@ export default function CompetitorAnalysis() {
                   <div>
                     <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                       <Target size={16} className="text-primary-500" />
-                      Domain của bạn: {data.yourDomain?.domain}
+                      Tên miền của bạn: {data.yourDomain?.domain}
                     </h3>
                     {benchmarkCompetitor && (
-                      <p className="text-xs text-slate-500 mt-1">So sánh nhanh với đối thủ có organic traffic cao nhất: {benchmarkCompetitor.domain}</p>
+                      <p className="text-xs text-slate-500 mt-1">So sánh nhanh với đối thủ có lưu lượng truy cập tự nhiên cao nhất: {benchmarkCompetitor.domain}</p>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {data.yourDomain?.contentScore !== undefined && (
-                      <span className="badge badge-purple">Content {formatMetricValue(data.yourDomain?.contentScore, '/100')}</span>
+                      <span className="badge badge-purple">Nội dung {formatMetricValue(data.yourDomain?.contentScore, '/100')}</span>
                     )}
                     {data.yourDomain?.technicalScore !== undefined && (
-                      <span className="badge badge-blue">Technical {formatMetricValue(data.yourDomain?.technicalScore, '/100')}</span>
+                      <span className="badge badge-blue">Kỹ thuật {formatMetricValue(data.yourDomain?.technicalScore, '/100')}</span>
                     )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                   {benchmarkCompetitor && (
                     <>
-                      <MetricCard label="Domain Authority" yours={data.yourDomain?.domainAuthority} theirs={benchmarkCompetitor?.domainAuthority} />
-                      <MetricCard label="Organic Traffic" yours={data.yourDomain?.organicTraffic} theirs={benchmarkCompetitor?.organicTraffic} />
-                      <MetricCard label="Organic Keywords" yours={data.yourDomain?.organicKeywords} theirs={benchmarkCompetitor?.organicKeywords} />
-                      <MetricCard label="Backlinks" yours={data.yourDomain?.backlinks} theirs={benchmarkCompetitor?.backlinks} />
-                      <MetricCard label="Content Score" yours={data.yourDomain?.contentScore} theirs={benchmarkCompetitor?.contentScore} />
-                      <MetricCard label="Technical Score" yours={data.yourDomain?.technicalScore} theirs={benchmarkCompetitor?.technicalScore} />
+                      <MetricCard label="Uy tín tên miền" yours={data.yourDomain?.domainAuthority} theirs={benchmarkCompetitor?.domainAuthority} />
+                      <MetricCard label="Lưu lượng tự nhiên" yours={data.yourDomain?.organicTraffic} theirs={benchmarkCompetitor?.organicTraffic} />
+                      <MetricCard label="Từ khóa tự nhiên" yours={data.yourDomain?.organicKeywords} theirs={benchmarkCompetitor?.organicKeywords} />
+                      <MetricCard label="Backlink" yours={data.yourDomain?.backlinks} theirs={benchmarkCompetitor?.backlinks} />
+                      <MetricCard label="Điểm nội dung" yours={data.yourDomain?.contentScore} theirs={benchmarkCompetitor?.contentScore} />
+                      <MetricCard label="Điểm kỹ thuật" yours={data.yourDomain?.technicalScore} theirs={benchmarkCompetitor?.technicalScore} />
                     </>
                   )}
                 </div>
@@ -425,7 +467,7 @@ export default function CompetitorAnalysis() {
                         <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                           <Users size={16} className="text-orange-500" />
                           {comp.domain}
-                          <span className="badge badge-blue">DA: {formatMetricValue(comp.domainAuthority)}</span>
+                          <span className="badge badge-blue">Uy tín: {formatMetricValue(comp.domainAuthority)}</span>
                         </h3>
                         {comp.marketPosition && (
                           <p className="text-sm text-slate-500 mt-1 max-w-3xl">{comp.marketPosition}</p>
@@ -436,27 +478,27 @@ export default function CompetitorAnalysis() {
                           <span className="badge badge-purple">{comp.publishingCadence}</span>
                         )}
                         {comp.contentScore !== undefined && (
-                          <span className="badge badge-green">Content {formatMetricValue(comp.contentScore, '/100')}</span>
+                          <span className="badge badge-green">Nội dung {formatMetricValue(comp.contentScore, '/100')}</span>
                         )}
                         {comp.technicalScore !== undefined && (
-                          <span className="badge badge-blue">Technical {formatMetricValue(comp.technicalScore, '/100')}</span>
+                          <span className="badge badge-blue">Kỹ thuật {formatMetricValue(comp.technicalScore, '/100')}</span>
                         )}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-                      <CompetitorStat label="Traffic" value={comp.organicTraffic} tone="orange" />
-                      <CompetitorStat label="Keywords" value={comp.organicKeywords} tone="orange" />
-                      <CompetitorStat label="Backlinks" value={comp.backlinks} tone="orange" />
-                      <CompetitorStat label="Content Score" value={formatMetricValue(comp.contentScore, '/100')} tone="emerald" />
-                      <CompetitorStat label="Technical Score" value={formatMetricValue(comp.technicalScore, '/100')} tone="blue" />
-                      <CompetitorStat label="Top Keywords" value={comp.topKeywords?.length || 0} tone="purple" />
+                      <CompetitorStat label="Lưu lượng" value={comp.organicTraffic} tone="orange" />
+                      <CompetitorStat label="Từ khóa" value={comp.organicKeywords} tone="orange" />
+                      <CompetitorStat label="Backlink" value={comp.backlinks} tone="orange" />
+                      <CompetitorStat label="Điểm nội dung" value={formatMetricValue(comp.contentScore, '/100')} tone="emerald" />
+                      <CompetitorStat label="Điểm kỹ thuật" value={formatMetricValue(comp.technicalScore, '/100')} tone="blue" />
+                      <CompetitorStat label="Từ khóa nổi bật" value={comp.topKeywords?.length || 0} tone="purple" />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <GapInsight label="Traffic gap" yours={data.yourDomain?.organicTraffic} theirs={comp.organicTraffic} />
-                      <GapInsight label="Keyword gap" yours={data.yourDomain?.organicKeywords} theirs={comp.organicKeywords} />
-                      <GapInsight label="Backlink gap" yours={data.yourDomain?.backlinks} theirs={comp.backlinks} />
+                      <GapInsight label="Chênh lệch lưu lượng" yours={data.yourDomain?.organicTraffic} theirs={comp.organicTraffic} />
+                      <GapInsight label="Chênh lệch từ khóa" yours={data.yourDomain?.organicKeywords} theirs={comp.organicKeywords} />
+                      <GapInsight label="Chênh lệch backlink" yours={data.yourDomain?.backlinks} theirs={comp.backlinks} />
                     </div>
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -476,7 +518,7 @@ export default function CompetitorAnalysis() {
                       />
 
                       <StrategyPanel
-                        title="Liên kết và technical"
+                        title="Liên kết và kỹ thuật"
                         icon={Gauge}
                         description={comp.linkProfile}
                         footer={(
@@ -528,7 +570,7 @@ export default function CompetitorAnalysis() {
               <div className="p-5 border-b border-slate-200">
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                   <Search size={16} className="text-blue-500" />
-                  Keyword Gaps - Từ khóa bạn đang bỏ lỡ ({data.keywordGaps?.length || 0})
+                  Khoảng trống từ khóa - những từ khóa bạn đang bỏ lỡ ({data.keywordGaps?.length || 0})
                 </h3>
               </div>
               <div className="overflow-x-auto">
@@ -536,10 +578,10 @@ export default function CompetitorAnalysis() {
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="text-left py-3 px-4 font-semibold text-slate-600">Từ khóa</th>
-                      <th className="text-right py-3 px-4 font-semibold text-slate-600">Volume</th>
+                      <th className="text-right py-3 px-4 font-semibold text-slate-600">Lượng tìm kiếm</th>
                       <th className="text-center py-3 px-4 font-semibold text-slate-600">Đối thủ #</th>
                       <th className="text-center py-3 px-4 font-semibold text-slate-600">Cơ hội</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-600">Idea nội dung</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-600">Gợi ý nội dung</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -552,7 +594,7 @@ export default function CompetitorAnalysis() {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className={`badge ${gap.opportunity === 'high' ? 'badge-green' : gap.opportunity === 'medium' ? 'badge-yellow' : 'badge-red'}`}>
-                            {gap.opportunity === 'high' ? 'Cao' : gap.opportunity === 'medium' ? 'TB' : 'Thấp'}
+                            {gap.opportunity === 'high' ? 'Cao' : gap.opportunity === 'medium' ? 'Trung bình' : 'Thấp'}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-slate-500 text-xs max-w-xs">{gap.contentIdea}</td>
@@ -568,7 +610,7 @@ export default function CompetitorAnalysis() {
             <div className="space-y-3">
               <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                 <BookOpen size={16} className="text-purple-500" />
-                Content Gaps - Chủ đề bạn chưa có
+                Khoảng trống nội dung - chủ đề bạn chưa có
               </h3>
               {data.contentGaps?.map((gap, i) => (
                 <div key={i} className="card p-4">
@@ -578,9 +620,9 @@ export default function CompetitorAnalysis() {
                       <div className="text-sm text-slate-500 mt-1">{gap.recommendation}</div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="text-xs text-slate-400">Est. Traffic</div>
+                      <div className="text-xs text-slate-400">Lưu lượng ước tính</div>
                       <div className="font-bold text-emerald-600">{gap.estimatedTraffic?.toLocaleString()}</div>
-                      <span className="badge badge-purple text-xs mt-1">{gap.contentType}</span>
+                      <span className="badge badge-purple text-xs mt-1">{translateContentType(gap.contentType)}</span>
                     </div>
                   </div>
                 </div>
@@ -596,12 +638,12 @@ export default function CompetitorAnalysis() {
                     <Link2 size={18} className="text-indigo-500 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-semibold text-slate-800">{opp.type}</span>
+                        <span className="font-semibold text-slate-800">{translateBacklinkType(opp.type)}</span>
                         <span className={`badge ${opp.impact === 'high' ? 'badge-green' : opp.impact === 'medium' ? 'badge-yellow' : 'badge-red'}`}>
-                          Impact: {opp.impact}
+                          Tác động: {translateImpact(opp.impact)}
                         </span>
                         <span className={`badge ${opp.difficulty === 'easy' ? 'badge-green' : opp.difficulty === 'medium' ? 'badge-yellow' : 'badge-red'}`}>
-                          {opp.difficulty}
+                          {translateDifficulty(opp.difficulty)}
                         </span>
                       </div>
                       <p className="text-sm text-slate-600">{opp.description}</p>
