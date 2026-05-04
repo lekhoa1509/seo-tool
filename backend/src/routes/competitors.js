@@ -3,6 +3,48 @@ import { chatCompletion } from '../services/openai.js';
 
 const router = Router();
 
+const normalizeList = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+
+const normalizeKeywords = (keywords) => (
+  Array.isArray(keywords)
+    ? keywords
+      .filter((item) => item?.keyword)
+      .map((item) => ({
+        keyword: item.keyword,
+        position: item.position ?? null,
+        volume: item.volume ?? null,
+        traffic: item.traffic ?? null,
+      }))
+    : []
+);
+
+const normalizeCompetitorAnalysis = (analysis) => ({
+  ...analysis,
+  yourDomain: {
+    ...analysis.yourDomain,
+    topKeywords: normalizeKeywords(analysis.yourDomain?.topKeywords),
+  },
+  competitors: Array.isArray(analysis.competitors)
+    ? analysis.competitors.map((competitor) => ({
+      ...competitor,
+      topKeywords: normalizeKeywords(competitor.topKeywords),
+      strengths: normalizeList(competitor.strengths),
+      weaknesses: normalizeList(competitor.weaknesses),
+      contentThemes: normalizeList(competitor.contentThemes),
+      technicalHighlights: normalizeList(competitor.technicalHighlights),
+      technicalRisks: normalizeList(competitor.technicalRisks),
+    }))
+    : [],
+  keywordGaps: normalizeList(analysis.keywordGaps),
+  contentGaps: normalizeList(analysis.contentGaps),
+  backlinkOpportunities: normalizeList(analysis.backlinkOpportunities),
+  actionPlan: {
+    immediate: normalizeList(analysis.actionPlan?.immediate),
+    shortTerm: normalizeList(analysis.actionPlan?.shortTerm),
+    longTerm: normalizeList(analysis.actionPlan?.longTerm),
+  },
+});
+
 router.post('/analyze', async (req, res) => {
   try {
     const { yourDomain, competitors, targetKeyword, industry } = req.body;
@@ -11,7 +53,7 @@ router.post('/analyze', async (req, res) => {
       return res.status(400).json({ error: 'yourDomain and competitors are required' });
     }
 
-    const systemPrompt = `You are a competitive SEO analyst like SEMrush. Provide detailed competitive analysis in JSON format only. Make data realistic and specific.`;
+    const systemPrompt = `You are a competitive SEO analyst like SEMrush. Provide detailed competitive analysis in JSON format only. Make data realistic, specific, and actionable. Avoid vague statements like "good SEO" or "strong content".`;
 
     const userPrompt = `Perform a comprehensive competitive SEO analysis:
 - Your domain: ${yourDomain}
@@ -46,10 +88,15 @@ Return detailed JSON:
       ],
       "contentScore": 82,
       "technicalScore": 88,
-      "strengths": ["strength 1", "strength 2"],
-      "weaknesses": ["weakness 1", "weakness 2"],
-      "contentStrategy": "Description of their content approach",
-      "linkProfile": "Description of link building strategy"
+      "strengths": ["3-4 specific strengths"],
+      "weaknesses": ["3-4 specific weaknesses"],
+      "contentStrategy": "2-3 sentence description of their content approach",
+      "linkProfile": "2-3 sentence description of link building strategy",
+      "marketPosition": "How this brand positions itself in SEO/market",
+      "publishingCadence": "Estimated publishing frequency or content velocity",
+      "contentThemes": ["2-4 content themes they cover especially well"],
+      "technicalHighlights": ["2-3 notable technical SEO advantages"],
+      "technicalRisks": ["2-3 notable technical/content SEO risks or gaps"]
     }
   ],
   "keywordGaps": [
@@ -90,7 +137,8 @@ Return detailed JSON:
 }`;
 
     const result = await chatCompletion(systemPrompt, userPrompt, { json: true, max_tokens: 6000 });
-    res.json(JSON.parse(result));
+    const parsed = JSON.parse(result);
+    res.json(normalizeCompetitorAnalysis(parsed));
   } catch (err) {
     console.error('Competitor analysis error:', err);
     res.status(500).json({ error: err.message });

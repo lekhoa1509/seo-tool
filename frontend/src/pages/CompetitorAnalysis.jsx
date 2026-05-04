@@ -1,9 +1,219 @@
 import React, { useState } from 'react';
 import {
-  Users, Plus, X, Loader2, TrendingUp, TrendingDown,
-  Target, Link2, Search, BookOpen, Zap, AlertTriangle, CheckCircle,
+  Users, Plus, X, Loader2, TrendingUp, Target, Link2, Search, BookOpen, Zap,
+  AlertTriangle, CheckCircle, Gauge, FileText, ArrowUpRight, ArrowDownRight, Sparkles,
 } from 'lucide-react';
 import { competitorsAPI } from '../utils/api';
+
+const parseMetricValue = (value) => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const formatMetricValue = (value, suffix = '') => {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  if (typeof value === 'number') return `${value.toLocaleString()}${suffix}`;
+  return `${value}${suffix}`;
+};
+
+const metricToneClasses = {
+  orange: 'bg-orange-50 text-orange-600',
+  blue: 'bg-blue-50 text-blue-600',
+  emerald: 'bg-emerald-50 text-emerald-600',
+  purple: 'bg-purple-50 text-purple-600',
+  slate: 'bg-slate-50 text-slate-700',
+};
+
+const listToneClasses = {
+  slate: {
+    wrapper: 'border-slate-200 bg-slate-50/80',
+    icon: 'text-slate-500',
+    title: 'text-slate-700',
+    bullet: 'text-slate-400',
+  },
+  green: {
+    wrapper: 'border-emerald-200 bg-emerald-50/80',
+    icon: 'text-emerald-600',
+    title: 'text-emerald-700',
+    bullet: 'text-emerald-500',
+  },
+  red: {
+    wrapper: 'border-red-200 bg-red-50/80',
+    icon: 'text-red-500',
+    title: 'text-red-600',
+    bullet: 'text-red-400',
+  },
+  orange: {
+    wrapper: 'border-orange-200 bg-orange-50/80',
+    icon: 'text-orange-500',
+    title: 'text-orange-700',
+    bullet: 'text-orange-400',
+  },
+};
+
+const MetricCard = ({ label, yours, theirs, higherIsBetter = true }) => {
+  const yoursNum = parseMetricValue(yours);
+  const theirsNum = parseMetricValue(theirs);
+  const better = higherIsBetter ? yoursNum >= theirsNum : yoursNum <= theirsNum;
+
+  return (
+    <div className="bg-slate-50 rounded-xl p-3">
+      <div className="text-xs text-slate-500 mb-2">{label}</div>
+      <div className="flex items-end gap-2">
+        <div className={`text-lg font-bold ${better ? 'text-emerald-600' : 'text-red-500'}`}>
+          {formatMetricValue(yours)}
+        </div>
+        <div className="text-xs text-slate-400 pb-0.5">vs {formatMetricValue(theirs)}</div>
+      </div>
+    </div>
+  );
+};
+
+const CompetitorStat = ({ label, value, tone = 'orange' }) => (
+  <div className={`rounded-2xl p-3 ${metricToneClasses[tone] || metricToneClasses.orange}`}>
+    <div className="text-xs text-slate-500">{label}</div>
+    <div className="font-bold text-lg mt-1">{formatMetricValue(value)}</div>
+  </div>
+);
+
+const GapInsight = ({ label, yours, theirs }) => {
+  const yoursNum = parseMetricValue(yours);
+  const theirsNum = parseMetricValue(theirs);
+
+  if (!yoursNum && !theirsNum) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+        <div className="text-sm font-semibold text-slate-700">{label}</div>
+        <div className="text-sm text-slate-400 mt-1">Chưa đủ dữ liệu để so sánh.</div>
+      </div>
+    );
+  }
+
+  const difference = Math.abs(theirsNum - yoursNum);
+  const isEqual = theirsNum === yoursNum;
+  const competitorAhead = theirsNum > yoursNum;
+  const Icon = isEqual ? Target : competitorAhead ? ArrowUpRight : ArrowDownRight;
+  const wrapperClass = isEqual
+    ? 'border-slate-200 bg-slate-50/80'
+    : competitorAhead
+      ? 'border-orange-200 bg-orange-50/80'
+      : 'border-emerald-200 bg-emerald-50/80';
+  const titleClass = isEqual
+    ? 'text-slate-700'
+    : competitorAhead
+      ? 'text-orange-700'
+      : 'text-emerald-700';
+  const iconClass = isEqual
+    ? 'text-slate-500'
+    : competitorAhead
+      ? 'text-orange-500'
+      : 'text-emerald-500';
+
+  return (
+    <div className={`rounded-2xl border p-4 ${wrapperClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+          <div className={`font-semibold mt-1 ${titleClass}`}>
+            {isEqual
+              ? 'Ngang bằng với domain của bạn'
+              : `${competitorAhead ? 'Nhỉnh hơn' : 'Thấp hơn'} ${difference.toLocaleString()}`}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            Bạn: {formatMetricValue(yours)} | Đối thủ: {formatMetricValue(theirs)}
+          </div>
+        </div>
+        <div className="w-9 h-9 rounded-full bg-white/80 flex items-center justify-center flex-shrink-0">
+          <Icon size={16} className={iconClass} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const InsightList = ({ title, items, icon: Icon, tone = 'slate', emptyText }) => {
+  const palette = listToneClasses[tone] || listToneClasses.slate;
+  const listItems = Array.isArray(items) ? items.filter(Boolean) : [];
+
+  return (
+    <div className={`rounded-2xl border p-4 ${palette.wrapper}`}>
+      <div className={`text-sm font-semibold mb-2 flex items-center gap-2 ${palette.title}`}>
+        <Icon size={14} className={palette.icon} />
+        {title}
+      </div>
+      {listItems.length > 0 ? (
+        <div className="space-y-2">
+          {listItems.map((item, index) => (
+            <div key={index} className="flex items-start gap-2 text-sm text-slate-600">
+              <span className={`mt-1 ${palette.bullet}`}>•</span>
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-slate-400">{emptyText}</div>
+      )}
+    </div>
+  );
+};
+
+const StrategyPanel = ({ title, description, icon: Icon, footer }) => (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+    <div className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+      <Icon size={14} className="text-slate-500" />
+      {title}
+    </div>
+    <p className="text-sm text-slate-600 leading-relaxed">
+      {description || 'Chưa có ghi chú chiến lược cụ thể.'}
+    </p>
+    {footer}
+  </div>
+);
+
+const TopKeywordTable = ({ keywords }) => {
+  const rows = Array.isArray(keywords) ? keywords.slice(0, 4) : [];
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+          <Search size={14} className="text-blue-500" />
+          Top keywords
+        </div>
+        <span className="text-xs text-slate-400">{rows.length > 0 ? `Top ${rows.length}` : 'Chưa có dữ liệu'}</span>
+      </div>
+
+      {rows.length > 0 ? (
+        <div className="space-y-2">
+          {rows.map((keyword, index) => (
+            <div key={`${keyword.keyword}-${index}`} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-800">{keyword.keyword}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Vol: {formatMetricValue(keyword.volume)} | Traffic: {formatMetricValue(keyword.traffic)}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-xs text-slate-400">Position</div>
+                  <div className="font-semibold text-blue-600">
+                    {keyword.position === null || keyword.position === undefined ? 'N/A' : `#${formatMetricValue(keyword.position)}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-slate-400">AI chưa trả về bộ top keywords cho đối thủ này.</div>
+      )}
+    </div>
+  );
+};
 
 export default function CompetitorAnalysis() {
   const [form, setForm] = useState({
@@ -51,22 +261,9 @@ export default function CompetitorAnalysis() {
     }
   };
 
-  const MetricCard = ({ label, yours, theirs, higherIsBetter = true }) => {
-    const yoursNum = parseFloat(yours) || 0;
-    const theirsNum = parseFloat(theirs) || 0;
-    const better = higherIsBetter ? yoursNum >= theirsNum : yoursNum <= theirsNum;
-    return (
-      <div className="bg-slate-50 rounded-xl p-3">
-        <div className="text-xs text-slate-500 mb-2">{label}</div>
-        <div className="flex items-end gap-2">
-          <div className={`text-lg font-bold ${better ? 'text-emerald-600' : 'text-red-500'}`}>
-            {typeof yours === 'number' ? yours.toLocaleString() : yours}
-          </div>
-          <div className="text-xs text-slate-400 pb-0.5">vs {typeof theirs === 'number' ? theirs.toLocaleString() : theirs}</div>
-        </div>
-      </div>
-    );
-  };
+  const benchmarkCompetitor = data?.competitors?.reduce((best, competitor) => (
+    parseMetricValue(competitor?.organicTraffic) > parseMetricValue(best?.organicTraffic) ? competitor : best
+  ), data?.competitors?.[0] || null);
 
   return (
     <div className="animate-fadeIn space-y-6">
@@ -155,17 +352,18 @@ export default function CompetitorAnalysis() {
 
       {data && !loading && (
         <>
-          {/* Summary */}
           <div className="card p-5">
             <p className="text-slate-600 leading-relaxed">{data.summary}</p>
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit overflow-x-auto">
             {['overview', 'gaps', 'content', 'backlinks', 'action'].map((tab) => {
               const labels = {
-                overview: 'Tổng quan', gaps: 'Keyword Gaps',
-                content: 'Content Gaps', backlinks: 'Backlinks', action: 'Kế hoạch',
+                overview: 'Tổng quan',
+                gaps: 'Keyword Gaps',
+                content: 'Content Gaps',
+                backlinks: 'Backlinks',
+                action: 'Kế hoạch',
               };
               return (
                 <button
@@ -181,87 +379,156 @@ export default function CompetitorAnalysis() {
             })}
           </div>
 
-          {/* Overview tab */}
           {activeTab === 'overview' && (
             <div className="space-y-5">
-              {/* Your domain */}
               <div className="card p-5">
-                <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <Target size={16} className="text-primary-500" />
-                  Domain của bạn: {data.yourDomain?.domain}
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {data.competitors?.[0] && (
+                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                      <Target size={16} className="text-primary-500" />
+                      Domain của bạn: {data.yourDomain?.domain}
+                    </h3>
+                    {benchmarkCompetitor && (
+                      <p className="text-xs text-slate-500 mt-1">So sánh nhanh với đối thủ có organic traffic cao nhất: {benchmarkCompetitor.domain}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {data.yourDomain?.contentScore !== undefined && (
+                      <span className="badge badge-purple">Content {formatMetricValue(data.yourDomain?.contentScore, '/100')}</span>
+                    )}
+                    {data.yourDomain?.technicalScore !== undefined && (
+                      <span className="badge badge-blue">Technical {formatMetricValue(data.yourDomain?.technicalScore, '/100')}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                  {benchmarkCompetitor && (
                     <>
-                      <MetricCard label="Domain Authority" yours={data.yourDomain?.domainAuthority} theirs={data.competitors[0]?.domainAuthority} />
-                      <MetricCard label="Organic Traffic" yours={data.yourDomain?.organicTraffic} theirs={data.competitors[0]?.organicTraffic} />
-                      <MetricCard label="Organic Keywords" yours={data.yourDomain?.organicKeywords} theirs={data.competitors[0]?.organicKeywords} />
-                      <MetricCard label="Backlinks" yours={data.yourDomain?.backlinks} theirs={data.competitors[0]?.backlinks} />
+                      <MetricCard label="Domain Authority" yours={data.yourDomain?.domainAuthority} theirs={benchmarkCompetitor?.domainAuthority} />
+                      <MetricCard label="Organic Traffic" yours={data.yourDomain?.organicTraffic} theirs={benchmarkCompetitor?.organicTraffic} />
+                      <MetricCard label="Organic Keywords" yours={data.yourDomain?.organicKeywords} theirs={benchmarkCompetitor?.organicKeywords} />
+                      <MetricCard label="Backlinks" yours={data.yourDomain?.backlinks} theirs={benchmarkCompetitor?.backlinks} />
+                      <MetricCard label="Content Score" yours={data.yourDomain?.contentScore} theirs={benchmarkCompetitor?.contentScore} />
+                      <MetricCard label="Technical Score" yours={data.yourDomain?.technicalScore} theirs={benchmarkCompetitor?.technicalScore} />
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Competitors */}
-              {data.competitors?.map((comp, i) => (
-                <div key={i} className="card p-5">
-                  <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                    <Users size={16} className="text-orange-500" />
-                    {comp.domain}
-                    <span className="badge badge-blue">DA: {comp.domainAuthority}</span>
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <div className="bg-orange-50 rounded-xl p-3">
-                      <div className="text-xs text-slate-500">Traffic</div>
-                      <div className="font-bold text-orange-600 text-lg">{comp.organicTraffic?.toLocaleString()}</div>
+              {data.competitors?.map((comp, i) => {
+                const technicalRisks = comp.technicalRisks?.length ? comp.technicalRisks : comp.weaknesses?.slice(0, 3);
+
+                return (
+                  <div key={i} className="card p-5 space-y-5">
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                      <div>
+                        <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                          <Users size={16} className="text-orange-500" />
+                          {comp.domain}
+                          <span className="badge badge-blue">DA: {formatMetricValue(comp.domainAuthority)}</span>
+                        </h3>
+                        {comp.marketPosition && (
+                          <p className="text-sm text-slate-500 mt-1 max-w-3xl">{comp.marketPosition}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {comp.publishingCadence && (
+                          <span className="badge badge-purple">{comp.publishingCadence}</span>
+                        )}
+                        {comp.contentScore !== undefined && (
+                          <span className="badge badge-green">Content {formatMetricValue(comp.contentScore, '/100')}</span>
+                        )}
+                        {comp.technicalScore !== undefined && (
+                          <span className="badge badge-blue">Technical {formatMetricValue(comp.technicalScore, '/100')}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="bg-orange-50 rounded-xl p-3">
-                      <div className="text-xs text-slate-500">Keywords</div>
-                      <div className="font-bold text-orange-600 text-lg">{comp.organicKeywords?.toLocaleString()}</div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                      <CompetitorStat label="Traffic" value={comp.organicTraffic} tone="orange" />
+                      <CompetitorStat label="Keywords" value={comp.organicKeywords} tone="orange" />
+                      <CompetitorStat label="Backlinks" value={comp.backlinks} tone="orange" />
+                      <CompetitorStat label="Content Score" value={formatMetricValue(comp.contentScore, '/100')} tone="emerald" />
+                      <CompetitorStat label="Technical Score" value={formatMetricValue(comp.technicalScore, '/100')} tone="blue" />
+                      <CompetitorStat label="Top Keywords" value={comp.topKeywords?.length || 0} tone="purple" />
                     </div>
-                    <div className="bg-orange-50 rounded-xl p-3">
-                      <div className="text-xs text-slate-500">Backlinks</div>
-                      <div className="font-bold text-orange-600 text-lg">{comp.backlinks?.toLocaleString()}</div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <GapInsight label="Traffic gap" yours={data.yourDomain?.organicTraffic} theirs={comp.organicTraffic} />
+                      <GapInsight label="Keyword gap" yours={data.yourDomain?.organicKeywords} theirs={comp.organicKeywords} />
+                      <GapInsight label="Backlink gap" yours={data.yourDomain?.backlinks} theirs={comp.backlinks} />
                     </div>
-                    <div className="bg-orange-50 rounded-xl p-3">
-                      <div className="text-xs text-slate-500">Content Score</div>
-                      <div className="font-bold text-orange-600 text-lg">{comp.contentScore}/100</div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      <StrategyPanel
+                        title="Chiến lược nội dung"
+                        icon={FileText}
+                        description={comp.contentStrategy}
+                        footer={comp.contentThemes?.length ? (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {comp.contentThemes.map((theme, index) => (
+                              <span key={index} className="text-xs px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600">
+                                {theme}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      />
+
+                      <StrategyPanel
+                        title="Liên kết và technical"
+                        icon={Gauge}
+                        description={comp.linkProfile}
+                        footer={(
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                            <InsightList
+                              title="Ưu thế kỹ thuật"
+                              items={comp.technicalHighlights}
+                              icon={CheckCircle}
+                              tone="green"
+                              emptyText="Chưa có điểm kỹ thuật nổi bật được AI xác định."
+                            />
+                            <InsightList
+                              title="Rủi ro cần lưu ý"
+                              items={technicalRisks}
+                              icon={AlertTriangle}
+                              tone="red"
+                              emptyText="Chưa có rủi ro kỹ thuật rõ ràng."
+                            />
+                          </div>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                      <TopKeywordTable keywords={comp.topKeywords} />
+                      <InsightList
+                        title="Điểm mạnh"
+                        items={comp.strengths}
+                        icon={Sparkles}
+                        tone="green"
+                        emptyText="Chưa có danh sách điểm mạnh cụ thể."
+                      />
+                      <InsightList
+                        title="Điểm yếu"
+                        items={comp.weaknesses}
+                        icon={AlertTriangle}
+                        tone="red"
+                        emptyText="Chưa có danh sách điểm yếu cụ thể."
+                      />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {comp.strengths && (
-                      <div>
-                        <div className="text-xs font-semibold text-green-600 mb-1.5 flex items-center gap-1">
-                          <CheckCircle size={12} /> Điểm mạnh
-                        </div>
-                        {comp.strengths.map((s, j) => (
-                          <div key={j} className="text-sm text-slate-600 py-0.5">• {s}</div>
-                        ))}
-                      </div>
-                    )}
-                    {comp.weaknesses && (
-                      <div>
-                        <div className="text-xs font-semibold text-red-500 mb-1.5 flex items-center gap-1">
-                          <AlertTriangle size={12} /> Điểm yếu
-                        </div>
-                        {comp.weaknesses.map((w, j) => (
-                          <div key={j} className="text-sm text-slate-600 py-0.5">• {w}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          {/* Keyword gaps */}
           {activeTab === 'gaps' && (
             <div className="card overflow-hidden">
               <div className="p-5 border-b border-slate-200">
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                   <Search size={16} className="text-blue-500" />
-                  Keyword Gaps – Từ khóa bạn đang bỏ lỡ ({data.keywordGaps?.length || 0})
+                  Keyword Gaps - Từ khóa bạn đang bỏ lỡ ({data.keywordGaps?.length || 0})
                 </h3>
               </div>
               <div className="overflow-x-auto">
@@ -297,12 +564,11 @@ export default function CompetitorAnalysis() {
             </div>
           )}
 
-          {/* Content gaps */}
           {activeTab === 'content' && (
             <div className="space-y-3">
               <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                 <BookOpen size={16} className="text-purple-500" />
-                Content Gaps – Chủ đề bạn chưa có
+                Content Gaps - Chủ đề bạn chưa có
               </h3>
               {data.contentGaps?.map((gap, i) => (
                 <div key={i} className="card p-4">
@@ -322,7 +588,6 @@ export default function CompetitorAnalysis() {
             </div>
           )}
 
-          {/* Backlinks */}
           {activeTab === 'backlinks' && (
             <div className="space-y-4">
               {data.backlinkOpportunities?.map((opp, i) => (
@@ -330,7 +595,7 @@ export default function CompetitorAnalysis() {
                   <div className="flex items-start gap-3">
                     <Link2 size={18} className="text-indigo-500 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-semibold text-slate-800">{opp.type}</span>
                         <span className={`badge ${opp.impact === 'high' ? 'badge-green' : opp.impact === 'medium' ? 'badge-yellow' : 'badge-red'}`}>
                           Impact: {opp.impact}
@@ -354,7 +619,6 @@ export default function CompetitorAnalysis() {
             </div>
           )}
 
-          {/* Action plan */}
           {activeTab === 'action' && data.actionPlan && (
             <div className="space-y-4">
               {[
@@ -363,17 +627,17 @@ export default function CompetitorAnalysis() {
                 { key: 'longTerm', label: 'Dài hạn (3-12 tháng)', color: 'bg-blue-500', icon: Target },
               ].map(({ key, label, color, icon: Icon }) => (
                 <div key={key} className="card p-5">
-                  <h3 className={`font-semibold mb-3 flex items-center gap-2 text-slate-800`}>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2 text-slate-800">
                     <div className={`w-7 h-7 ${color} rounded-lg flex items-center justify-center`}>
                       <Icon size={14} className="text-white" />
                     </div>
                     {label}
                   </h3>
                   <div className="space-y-2">
-                    {data.actionPlan[key]?.map((action, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+                    {data.actionPlan[key]?.map((action, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
                         <div className="w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0 mt-0.5">
-                          {i + 1}
+                          {index + 1}
                         </div>
                         <span className="text-sm text-slate-700">{action}</span>
                       </div>
