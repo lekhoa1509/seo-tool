@@ -90,7 +90,9 @@ export default function BlogWriter() {
               const parsed = JSON.parse(data);
               if (parsed.content) {
                 content += parsed.content;
-                setStreamContent(content);
+                // Strip markdown code fences if AI wraps HTML in ```html ... ```
+                const cleaned = content.replace(/^```html\s*/i, '').replace(/```\s*$/, '');
+                setStreamContent(cleaned);
               }
             } catch {}
           }

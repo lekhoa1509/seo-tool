@@ -94,7 +94,8 @@ router.post('/stream', async (req, res) => {
     }
 
     const systemPrompt = `You are an expert SEO content writer. Write high-quality, engaging, SEO-optimized blog posts in ${language}.
-Follow E-E-A-T principles. Use proper heading structure (H2, H3). Include relevant examples and data.`;
+Follow E-E-A-T principles. Use proper heading structure (H2, H3). Include relevant examples and data.
+IMPORTANT: Return raw HTML directly. Do NOT wrap content in markdown code blocks or backticks. Do NOT use \`\`\`html or \`\`\` fences.`;
 
     const userPrompt = `Write a complete, well-structured blog post about: "${topic}"
 
