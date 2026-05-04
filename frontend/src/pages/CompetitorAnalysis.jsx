@@ -495,6 +495,20 @@ export default function CompetitorAnalysis() {
                       <CompetitorStat label="Từ khóa nổi bật" value={comp.topKeywords?.length || 0} tone="purple" />
                     </div>
 
+                    {comp.siteSnapshot && (
+                      <InsightList
+                        title="Tín hiệu website đã crawl"
+                        items={comp.siteSnapshot?.keySignals}
+                        icon={Search}
+                        tone="slate"
+                        emptyText={
+                          comp.siteSnapshot?.crawlStatus?.startsWith('error:')
+                            ? `Chưa lấy được dữ liệu website: ${comp.siteSnapshot.crawlStatus.replace('error:', '').trim()}`
+                            : 'Chưa có đủ tín hiệu rõ ràng từ website này.'
+                        }
+                      />
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <GapInsight label="Chênh lệch lưu lượng" yours={data.yourDomain?.organicTraffic} theirs={comp.organicTraffic} />
                       <GapInsight label="Chênh lệch từ khóa" yours={data.yourDomain?.organicKeywords} theirs={comp.organicKeywords} />
