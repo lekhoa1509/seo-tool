@@ -187,4 +187,41 @@ Return JSON:
   }
 });
 
+router.post('/publish-wordpress', async (req, res) => {
+  try {
+    const { wpUrl, wpUsername, wpAppPassword, title, content, status = 'draft' } = req.body;
+
+    if (!wpUrl || !wpUsername || !wpAppPassword || !title || !content) {
+      return res.status(400).json({ error: 'Missing required WordPress credentials or content' });
+    }
+
+    const apiUrl = `${wpUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts`;
+    const auth = Buffer.from(`${wpUsername}:${wpAppPassword}`).toString('base64');
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${auth}`
+      },
+      body: JSON.stringify({
+        title,
+        content,
+        status
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to publish to WordPress');
+    }
+
+    const data = await response.json();
+    res.json({ success: true, url: data.link, id: data.id, editUrl: `${wpUrl.replace(/\/$/, '')}/wp-admin/post.php?post=${data.id}&action=edit` });
+  } catch (err) {
+    console.error('WordPress publish error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

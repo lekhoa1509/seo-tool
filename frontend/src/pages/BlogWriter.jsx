@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   PenTool, Loader2, Plus, X, Copy, Download, Sparkles,
-  RefreshCw, CheckCircle, Tag, Clock, BookOpen, Wand2,
+  RefreshCw, CheckCircle, Tag, Clock, BookOpen, Wand2, Globe, Send
 } from 'lucide-react';
 import { blogAPI } from '../utils/api';
 
@@ -24,6 +24,17 @@ export default function BlogWriter() {
   const [activeTab, setActiveTab] = useState('content');
   const [titlesData, setTitlesData] = useState(null);
   const contentRef = useRef(null);
+
+  // WordPress states
+  const [showWpModal, setShowWpModal] = useState(false);
+  const [wpForm, setWpForm] = useState({
+    url: localStorage.getItem('wp_url') || '',
+    username: localStorage.getItem('wp_username') || '',
+    appPassword: localStorage.getItem('wp_app_password') || ''
+  });
+  const [wpPublishing, setWpPublishing] = useState(false);
+  const [wpResult, setWpResult] = useState(null);
+  const [wpError, setWpError] = useState('');
 
   const addKeyword = () => setForm({ ...form, keywords: [...form.keywords, ''] });
   const removeKeyword = (i) => setForm({ ...form, keywords: form.keywords.filter((_, idx) => idx !== i) });
@@ -152,6 +163,37 @@ export default function BlogWriter() {
     a.href = url;
     a.download = `${form.topic.slice(0, 30).replace(/\s+/g, '-')}.html`;
     a.click();
+  };
+
+  const handleWpPublish = async (e) => {
+    e.preventDefault();
+    setWpPublishing(true);
+    setWpError('');
+    setWpResult(null);
+
+    localStorage.setItem('wp_url', wpForm.url);
+    localStorage.setItem('wp_username', wpForm.username);
+    localStorage.setItem('wp_app_password', wpForm.appPassword);
+
+    try {
+      const content = data?.content || streamContent;
+      const title = data?.title || form.topic;
+      
+      const result = await blogAPI.publishWordPress({
+        wpUrl: wpForm.url,
+        wpUsername: wpForm.username,
+        wpAppPassword: wpForm.appPassword,
+        title,
+        content,
+        status: 'draft'
+      });
+      
+      setWpResult(result);
+    } catch (err) {
+      setWpError(err.message || 'Lỗi khi đăng bài lên WordPress');
+    } finally {
+      setWpPublishing(false);
+    }
   };
 
   return (
@@ -296,6 +338,10 @@ export default function BlogWriter() {
             </h3>
             {streamContent && (
               <div className="flex gap-2">
+                <button onClick={() => setShowWpModal(true)} className="btn-outline text-xs">
+                  <Globe size={12} />
+                  Đăng WordPress
+                </button>
                 <button onClick={copyContent} className="btn-outline text-xs">
                   {copied ? <CheckCircle size={12} /> : <Copy size={12} />}
                   {copied ? 'Đã copy' : 'Copy'}
@@ -321,6 +367,10 @@ export default function BlogWriter() {
                 <p className="text-slate-500 text-sm">{data.metaDescription}</p>
               </div>
               <div className="flex gap-2">
+                <button onClick={() => setShowWpModal(true)} className="btn-outline text-sm">
+                  <Globe size={14} />
+                  Đăng WordPress
+                </button>
                 <button onClick={copyContent} className="btn-outline text-sm">
                   {copied ? <CheckCircle size={14} /> : <Copy size={14} />}
                   {copied ? 'Đã copy' : 'Copy HTML'}
@@ -530,6 +580,106 @@ export default function BlogWriter() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* WordPress Publish Modal */}
+      {showWpModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fadeIn">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <Globe className="text-blue-500" size={20} />
+                Đăng lên WordPress (Bản nháp)
+              </h3>
+              <button onClick={() => setShowWpModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-5">
+              {wpResult ? (
+                <div className="text-center py-6 space-y-4">
+                  <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle size={32} />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-slate-800">Đăng bài thành công!</h4>
+                    <p className="text-slate-500 text-sm mt-1">Bài viết đã được lưu dưới dạng bản nháp.</p>
+                  </div>
+                  <div className="flex gap-3 justify-center mt-6">
+                    <a href={wpResult.editUrl} target="_blank" rel="noopener noreferrer" className="btn-primary">
+                      Xem & Chỉnh sửa trên WP
+                    </a>
+                    <button onClick={() => { setShowWpModal(false); setWpResult(null); }} className="btn-outline">
+                      Đóng
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleWpPublish} className="space-y-4">
+                  <div>
+                    <label className="label">URL Website WordPress *</label>
+                    <input
+                      type="url"
+                      className="input"
+                      placeholder="https://yoursite.com"
+                      value={wpForm.url}
+                      onChange={(e) => setWpForm({ ...wpForm, url: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Tên đăng nhập / Email *</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="admin"
+                      value={wpForm.username}
+                      onChange={(e) => setWpForm({ ...wpForm, username: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">
+                      Application Password *
+                      <a href="https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 ml-2 font-normal hover:underline">
+                        (Cách tạo)
+                      </a>
+                    </label>
+                    <input
+                      type="password"
+                      className="input"
+                      placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                      value={wpForm.appPassword}
+                      onChange={(e) => setWpForm({ ...wpForm, appPassword: e.target.value })}
+                      required
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Sử dụng Application Password thay vì mật khẩu thông thường để đảm bảo bảo mật.</p>
+                  </div>
+                  
+                  {wpError && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">
+                      {wpError}
+                    </div>
+                  )}
+                  
+                  <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+                    <button type="button" onClick={() => setShowWpModal(false)} className="btn-outline">
+                      Hủy
+                    </button>
+                    <button type="submit" disabled={wpPublishing} className="btn-primary">
+                      {wpPublishing ? (
+                        <><Loader2 size={16} className="animate-spin" /> Đang đăng...</>
+                      ) : (
+                        <><Send size={16} /> Đăng Bản Nháp</>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}

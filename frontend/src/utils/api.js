@@ -41,6 +41,7 @@ export const blogAPI = {
   generate: (data) => api.post('/blog/generate', data),
   improve: (data) => api.post('/blog/improve', data),
   titles: (data) => api.post('/blog/titles', data),
+  publishWordPress: (data) => api.post('/blog/publish-wordpress', data),
 };
 
 export const gscAPI = {
