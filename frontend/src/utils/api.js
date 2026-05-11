@@ -44,6 +44,15 @@ export const blogAPI = {
   publishWordPress: (data) => api.post('/blog/publish-wordpress', data),
 };
 
+export const chatAPI = {
+  message: (data) => api.post('/chat/message', data),
+};
+
+export const imageAPI = {
+  generateSeo: (data) => api.post('/images/seo', data, { timeout: 300000 }),
+  editSeo: (data) => api.post('/images/seo/edit', data, { timeout: 300000 }),
+};
+
 export const gscAPI = {
   getAuthUrl: () => api.get('/gsc/auth'),
   getStatus: () => api.get('/gsc/status'),

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search, Globe, Users, FileText, PenTool, BarChart2,
-  ArrowRight, Sparkles, TrendingUp, Zap, Shield,
+  ArrowRight, Sparkles, TrendingUp, Zap, Shield, MessageSquare, Image as ImageIcon,
 } from 'lucide-react';
 
 const tools = [
@@ -57,6 +57,26 @@ const tools = [
     features: ['Full Article', 'Meta Tags', 'FAQ Schema', 'Content Brief'],
   },
   {
+    title: 'Chat GPT',
+    description: 'Trò chuyện trực tiếp với GPT-5.5 để brainstorm, phân tích SEO, viết nội dung và hỗ trợ code',
+    icon: MessageSquare,
+    path: '/chat',
+    color: 'from-indigo-500 to-violet-600',
+    bgColor: 'bg-indigo-50',
+    textColor: 'text-indigo-600',
+    features: ['Streaming Chat', 'SEO Mode', 'Code Mode', 'Prompt Ideas'],
+  },
+  {
+    title: 'Tạo ảnh SEO',
+    description: 'Tạo ảnh blog, hero và social preview tối ưu cho nội dung SEO bằng AI image model',
+    icon: ImageIcon,
+    path: '/images',
+    color: 'from-teal-500 to-cyan-600',
+    bgColor: 'bg-teal-50',
+    textColor: 'text-teal-600',
+    features: ['Blog Hero', 'Alt Text', 'Prompt SEO', 'PNG Output'],
+  },
+  {
     title: 'Google Search Console',
     description: 'Kết nối GSC để theo dõi traffic, từ khóa và hiệu suất trang web',
     icon: BarChart2,
@@ -69,8 +89,8 @@ const tools = [
 ];
 
 const stats = [
-  { label: 'AI Model', value: 'GPT-4.1 Mini', icon: Sparkles, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  { label: 'Tools Available', value: '6 Tools', icon: Zap, color: 'text-blue-600', bg: 'bg-blue-50' },
+  { label: 'AI Chat Model', value: 'GPT-5.5', icon: Sparkles, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+  { label: 'Tools Available', value: '8 Tools', icon: Zap, color: 'text-blue-600', bg: 'bg-blue-50' },
   { label: 'SEO Checks', value: '50+ Checks', icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   { label: 'Performance', value: 'Real-time', icon: TrendingUp, color: 'text-orange-600', bg: 'bg-orange-50' },
 ];
@@ -87,7 +107,7 @@ export default function Dashboard() {
         <div className="relative">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={20} className="text-yellow-300" />
-            <span className="text-sm font-medium text-indigo-200">Powered by GPT-4.1 Mini</span>
+            <span className="text-sm font-medium text-indigo-200">Powered by GPT-5.5 Chat</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">SEO Pro Tool</h1>
           <p className="text-indigo-200 text-lg max-w-xl">
@@ -102,6 +122,14 @@ export default function Dashboard() {
             <Link to="/blog" className="bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm border border-white/30">
               <PenTool size={16} />
               Viết bài với AI
+            </Link>
+            <Link to="/chat" className="bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm border border-white/30">
+              <MessageSquare size={16} />
+              Chat GPT
+            </Link>
+            <Link to="/images" className="bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm border border-white/30">
+              <ImageIcon size={16} />
+              Tạo ảnh SEO
             </Link>
           </div>
         </div>

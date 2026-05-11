@@ -8,6 +8,8 @@ import {
   FileText,
   PenTool,
   BarChart2,
+  MessageSquare,
+  Image as ImageIcon,
   X,
   Sparkles,
   ChevronRight,
@@ -54,6 +56,20 @@ const navItems = [
     icon: PenTool,
     color: 'text-pink-500',
     badge: 'AI',
+  },
+  {
+    label: 'Chat GPT',
+    path: '/chat',
+    icon: MessageSquare,
+    color: 'text-indigo-500',
+    badge: 'GPT-5.5',
+  },
+  {
+    label: 'Tạo ảnh SEO',
+    path: '/images',
+    icon: ImageIcon,
+    color: 'text-teal-500',
+    badge: 'Image',
   },
   {
     label: 'Google Search Console',
@@ -129,10 +145,10 @@ export default function Sidebar({ onClose }) {
         <div className="bg-gradient-to-br from-primary-50 to-indigo-50 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={14} className="text-primary-600" />
-            <span className="text-xs font-semibold text-primary-700">GPT-4.1 Mini</span>
+            <span className="text-xs font-semibold text-primary-700">GPT-5.5 Chat</span>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Vận hành bởi mô hình mới nhất của OpenAI cho phân tích SEO thông minh
+            Có trợ lý chat riêng và bộ công cụ SEO AI cho công việc hằng ngày
           </p>
         </div>
         <p className="text-center text-xs text-slate-400 mt-3">SEO Pro v1.0</p>

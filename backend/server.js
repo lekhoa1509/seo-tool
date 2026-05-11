@@ -7,6 +7,8 @@ import competitorsRouter from './src/routes/competitors.js';
 import contentRouter from './src/routes/content.js';
 import gscRouter from './src/routes/gsc.js';
 import blogRouter from './src/routes/blog.js';
+import chatRouter from './src/routes/chat.js';
+import imagesRouter from './src/routes/images.js';
 
 dotenv.config();
 
@@ -41,6 +43,8 @@ app.use('/api/competitors', competitorsRouter);
 app.use('/api/content', contentRouter);
 app.use('/api/gsc', gscRouter);
 app.use('/api/blog', blogRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/images', imagesRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

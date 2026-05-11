@@ -8,6 +8,8 @@ import CompetitorAnalysis from './pages/CompetitorAnalysis';
 import ContentOptimization from './pages/ContentOptimization';
 import BlogWriter from './pages/BlogWriter';
 import GoogleSearchConsole from './pages/GoogleSearchConsole';
+import AIChat from './pages/AIChat';
+import SEOImageGenerator from './pages/SEOImageGenerator';
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
           <Route path="content" element={<ContentOptimization />} />
           <Route path="blog" element={<BlogWriter />} />
           <Route path="gsc" element={<GoogleSearchConsole />} />
+          <Route path="chat" element={<AIChat />} />
+          <Route path="images" element={<SEOImageGenerator />} />
         </Route>
       </Routes>
     </BrowserRouter>
