@@ -10,6 +10,7 @@ import BlogWriter from './pages/BlogWriter';
 import GoogleSearchConsole from './pages/GoogleSearchConsole';
 import AIChat from './pages/AIChat';
 import SEOImageGenerator from './pages/SEOImageGenerator';
+import OrganicSales from './pages/OrganicSales';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="gsc" element={<GoogleSearchConsole />} />
           <Route path="chat" element={<AIChat />} />
           <Route path="images" element={<SEOImageGenerator />} />
+          <Route path="sales" element={<OrganicSales />} />
         </Route>
       </Routes>
     </BrowserRouter>

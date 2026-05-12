@@ -60,6 +60,16 @@ export const imageAPI = {
   editSeo: (data) => api.post('/images/seo/edit', data, { timeout: LONG_RUNNING_TIMEOUT }),
 };
 
+export const salesAPI = {
+  dashboard: (data) => api.post('/sales/dashboard', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  intentMap: (data) => api.post('/sales/intent-map', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  moneyPage: (data) => api.post('/sales/money-page', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  internalLinks: (data) => api.post('/sales/internal-links', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  serpGap: (data) => api.post('/sales/serp-gap', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  rankOpportunities: (data) => api.post('/sales/rank-opportunities', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  croSchema: (data) => api.post('/sales/cro-schema', data, { timeout: LONG_RUNNING_TIMEOUT }),
+};
+
 export const gscAPI = {
   getAuthUrl: () => api.get('/gsc/auth'),
   getStatus: () => api.get('/gsc/status'),

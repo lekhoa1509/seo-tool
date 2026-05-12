@@ -9,6 +9,7 @@ import gscRouter from './src/routes/gsc.js';
 import blogRouter from './src/routes/blog.js';
 import chatRouter from './src/routes/chat.js';
 import imagesRouter from './src/routes/images.js';
+import salesRouter from './src/routes/sales.js';
 
 dotenv.config();
 
@@ -51,6 +52,7 @@ app.use('/api/gsc', gscRouter);
 app.use('/api/blog', blogRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/images', imagesRouter);
+app.use('/api/sales', salesRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

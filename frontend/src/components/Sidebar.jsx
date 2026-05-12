@@ -10,6 +10,7 @@ import {
   BarChart2,
   MessageSquare,
   Image as ImageIcon,
+  TrendingUp,
   X,
   Sparkles,
   ChevronRight,
@@ -70,6 +71,13 @@ const navItems = [
     icon: ImageIcon,
     color: 'text-teal-500',
     badge: 'Image',
+  },
+  {
+    label: 'Organic Sales',
+    path: '/sales',
+    icon: TrendingUp,
+    color: 'text-emerald-500',
+    badge: 'Sales',
   },
   {
     label: 'Google Search Console',

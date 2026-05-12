@@ -77,6 +77,16 @@ const tools = [
     features: ['Blog Hero', 'Alt Text', 'Prompt SEO', 'PNG Output'],
   },
   {
+    title: 'Organic Sales',
+    description: 'Map intent, tối ưu money page, internal link, SERP gap, rank opportunity và schema để tăng lead organic',
+    icon: TrendingUp,
+    path: '/sales',
+    color: 'from-emerald-500 to-lime-600',
+    bgColor: 'bg-emerald-50',
+    textColor: 'text-emerald-600',
+    features: ['Sales Dashboard', 'Intent Mapper', 'Money Page', 'CRO Schema'],
+  },
+  {
     title: 'Google Search Console',
     description: 'Kết nối GSC để theo dõi traffic, từ khóa và hiệu suất trang web',
     icon: BarChart2,
@@ -90,7 +100,7 @@ const tools = [
 
 const stats = [
   { label: 'AI Chat Model', value: 'GPT-5.5', icon: Sparkles, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  { label: 'Tools Available', value: '8 Tools', icon: Zap, color: 'text-blue-600', bg: 'bg-blue-50' },
+  { label: 'Tools Available', value: '9 Tools', icon: Zap, color: 'text-blue-600', bg: 'bg-blue-50' },
   { label: 'SEO Checks', value: '50+ Checks', icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   { label: 'Performance', value: 'Real-time', icon: TrendingUp, color: 'text-orange-600', bg: 'bg-orange-50' },
 ];
@@ -126,6 +136,10 @@ export default function Dashboard() {
             <Link to="/chat" className="bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm border border-white/30">
               <MessageSquare size={16} />
               Chat GPT
+            </Link>
+            <Link to="/sales" className="bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm border border-white/30">
+              <TrendingUp size={16} />
+              Organic Sales
             </Link>
             <Link to="/images" className="bg-white/20 hover:bg-white/30 text-white font-medium px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 text-sm border border-white/30">
               <ImageIcon size={16} />
