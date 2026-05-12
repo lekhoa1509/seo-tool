@@ -169,7 +169,7 @@ tool SEO for web/
 | Lỗi | Nguyên nhân | Fix |
 |-----|-------------|-----|
 | `PORT variable must be integer` | Set PORT thủ công trong Railway | Xóa PORT khỏi Railway Variables |
-| `CORS not allowed` | FRONTEND_URL sai | Đã fix: cho phép `*.vercel.app` trong server.js |
+| `CORS not allowed` | FRONTEND_URL sai hoặc dùng tunnel tạm thời | Đã fix: cho phép `*.vercel.app`, `*.trycloudflare.com`, hoặc thêm origin vào `CORS_ORIGINS` |
 | URL sai dạng `vercel.app/railway.app/api/...` | VITE_API_URL thiếu `https://` | Thêm `https://` vào đầu |
 | `404` khi refresh trang | Vercel không biết xử lý SPA routes | Đã fix bằng `frontend/vercel.json` |
 | `[object Object]` error | Axios error không parse đúng | Đã fix trong api.js interceptor |

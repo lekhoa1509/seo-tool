@@ -1,17 +1,24 @@
 import axios from 'axios';
 
+const DEFAULT_TIMEOUT = 120000;
+const LONG_RUNNING_TIMEOUT = 300000;
+
 const BASE_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 120000,
+  timeout: DEFAULT_TIMEOUT,
 });
 
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return Promise.reject(new Error('Yêu cầu xử lý quá lâu. Nếu đang tạo kèm hình ảnh, hãy thử lại bằng nút Viết trực tiếp (Stream) hoặc tắt hình ảnh.'));
+    }
+
     const message = error.response?.data?.error || error.message || 'An error occurred';
     return Promise.reject(new Error(message));
   }
@@ -38,7 +45,7 @@ export const contentAPI = {
 };
 
 export const blogAPI = {
-  generate: (data) => api.post('/blog/generate', data),
+  generate: (data) => api.post('/blog/generate', data, { timeout: LONG_RUNNING_TIMEOUT }),
   improve: (data) => api.post('/blog/improve', data),
   titles: (data) => api.post('/blog/titles', data),
   publishWordPress: (data) => api.post('/blog/publish-wordpress', data),
@@ -49,8 +56,8 @@ export const chatAPI = {
 };
 
 export const imageAPI = {
-  generateSeo: (data) => api.post('/images/seo', data, { timeout: 300000 }),
-  editSeo: (data) => api.post('/images/seo/edit', data, { timeout: 300000 }),
+  generateSeo: (data) => api.post('/images/seo', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  editSeo: (data) => api.post('/images/seo/edit', data, { timeout: LONG_RUNNING_TIMEOUT }),
 };
 
 export const gscAPI = {

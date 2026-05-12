@@ -52,19 +52,44 @@ export function buildChatMessages(messages = [], systemPrompt = DEFAULT_SYSTEM_P
 
 export async function createGptChatCompletion(messages, options = {}) {
   const { apiKey, baseURL, model } = getChatConfig();
-  const response = await fetch(`${baseURL}/chat/completions`, {
+  const payload = {
+    model,
+    messages,
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.max_tokens ?? 4000,
+  };
+
+  if (options.json) {
+    payload.response_format = { type: 'json_object' };
+  }
+
+  let response = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: options.temperature ?? 0.7,
-      max_tokens: options.max_tokens ?? 4000,
-    }),
+    body: JSON.stringify(payload),
   });
+
+  if (!response.ok && payload.response_format) {
+    const firstError = await response.text();
+    delete payload.response_format;
+
+    response = await fetch(`${baseURL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const retryError = await response.text();
+      throw new Error(retryError || firstError || `GPT chat request failed with status ${response.status}`);
+    }
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -81,11 +106,24 @@ export async function createGptChatCompletion(messages, options = {}) {
 
 export async function streamGptChatCompletion(messages, res, options = {}) {
   const { apiKey, baseURL, model } = getChatConfig();
+  const writeDone = options.writeDone !== false;
+  const endResponse = options.endResponse !== false;
+
+  const finishStream = () => {
+    if (writeDone) {
+      res.write('data: [DONE]\n\n');
+    }
+
+    if (endResponse) {
+      res.end();
+    }
+  };
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
+  options.onReady?.({ model, res });
 
   const response = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',
@@ -132,8 +170,7 @@ export async function streamGptChatCompletion(messages, res, options = {}) {
 
       if (!data) continue;
       if (data === '[DONE]') {
-        res.write('data: [DONE]\n\n');
-        res.end();
+        finishStream();
         return;
       }
 
@@ -145,6 +182,5 @@ export async function streamGptChatCompletion(messages, res, options = {}) {
     }
   }
 
-  res.write('data: [DONE]\n\n');
-  res.end();
+  finishStream();
 }

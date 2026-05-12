@@ -47,14 +47,14 @@ const tools = [
     features: ['Keyword Density', 'Readability', 'E-E-A-T Score', 'LSI Keywords'],
   },
   {
-    title: 'AI Blog Writer',
-    description: 'Viết bài blog SEO chuẩn theo chủ đề với AI, đầy đủ meta và schema',
+    title: 'AI Content Writer',
+    description: 'Viết blog hoặc bài sản phẩm SEO với GPT-5.5, kèm meta, schema và ảnh AI',
     icon: PenTool,
     path: '/blog',
     color: 'from-pink-500 to-rose-600',
     bgColor: 'bg-pink-50',
     textColor: 'text-pink-600',
-    features: ['Full Article', 'Meta Tags', 'FAQ Schema', 'Content Brief'],
+    features: ['Blog SEO', 'Bài sản phẩm', 'FAQ Schema', 'Ảnh AI'],
   },
   {
     title: 'Chat GPT',

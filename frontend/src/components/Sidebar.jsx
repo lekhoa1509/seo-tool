@@ -51,7 +51,7 @@ const navItems = [
     badge: 'AI',
   },
   {
-    label: 'Viết blog AI',
+    label: 'Viết bài AI',
     path: '/blog',
     icon: PenTool,
     color: 'text-pink-500',

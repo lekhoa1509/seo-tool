@@ -19,6 +19,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4173',
   process.env.FRONTEND_URL,
+  ...(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 ].filter(Boolean);
 
 app.use(cors({
@@ -27,6 +31,8 @@ app.use(cors({
     if (!origin) return callback(null, true);
     // Allow any vercel.app subdomain
     if (origin.endsWith('.vercel.app')) return callback(null, true);
+    // Allow temporary Cloudflare Tunnel frontends
+    if (origin.endsWith('.trycloudflare.com')) return callback(null, true);
     // Allow explicitly listed origins
     if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`CORS: ${origin} not allowed`));
