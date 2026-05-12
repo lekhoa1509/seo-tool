@@ -12,6 +12,19 @@ const api = axios.create({
   timeout: DEFAULT_TIMEOUT,
 });
 
+function normalizeApiErrorMessage(message) {
+  const cleaned = String(message || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (/504 Gateway Time-out/i.test(cleaned)) {
+    return 'AI provider bị timeout (504). Hãy thử lại bằng luồng streaming hoặc giảm số từ.';
+  }
+
+  return cleaned;
+}
+
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
@@ -19,7 +32,9 @@ api.interceptors.response.use(
       return Promise.reject(new Error('Yêu cầu xử lý quá lâu. Nếu đang tạo kèm hình ảnh, hãy thử lại bằng nút Viết trực tiếp (Stream) hoặc tắt hình ảnh.'));
     }
 
-    const message = error.response?.data?.error || error.message || 'An error occurred';
+    const responseData = error.response?.data;
+    const rawMessage = responseData?.error || (typeof responseData === 'string' ? responseData : error.message);
+    const message = normalizeApiErrorMessage(rawMessage || 'An error occurred');
     return Promise.reject(new Error(message));
   }
 );

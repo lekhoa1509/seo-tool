@@ -26,6 +26,19 @@ function getChatConfig() {
   };
 }
 
+function formatChatApiError(errorText, fallbackMessage) {
+  const cleaned = String(errorText || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (/504 Gateway Time-out/i.test(cleaned)) {
+    return 'AI provider bị timeout (504 Gateway Time-out). Hãy thử lại bằng luồng streaming hoặc giảm số từ.';
+  }
+
+  return cleaned || fallbackMessage;
+}
+
 export function buildChatMessages(messages = [], systemPrompt = DEFAULT_SYSTEM_PROMPT) {
   if (!Array.isArray(messages)) {
     throw new Error('messages must be an array');
@@ -87,13 +100,16 @@ export async function createGptChatCompletion(messages, options = {}) {
 
     if (!response.ok) {
       const retryError = await response.text();
-      throw new Error(retryError || firstError || `GPT chat request failed with status ${response.status}`);
+      throw new Error(formatChatApiError(
+        retryError || firstError,
+        `GPT chat request failed with status ${response.status}`
+      ));
     }
   }
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || `GPT chat request failed with status ${response.status}`);
+    throw new Error(formatChatApiError(errorText, `GPT chat request failed with status ${response.status}`));
   }
 
   const data = await response.json();
@@ -102,6 +118,90 @@ export async function createGptChatCompletion(messages, options = {}) {
     content: data.choices[0]?.message?.content || '',
     model: data.model || model,
   };
+}
+
+export async function createGptChatCompletionStream(messages, options = {}) {
+  const { apiKey, baseURL, model } = getChatConfig();
+  const payload = {
+    model,
+    messages,
+    temperature: options.temperature ?? 0.7,
+    max_tokens: options.max_tokens ?? 4000,
+    stream: true,
+  };
+
+  if (options.json) {
+    payload.response_format = { type: 'json_object' };
+  }
+
+  const request = () => fetch(`${baseURL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let response = await request();
+
+  if (!response.ok && payload.response_format) {
+    const firstError = await response.text();
+    delete payload.response_format;
+    response = await request();
+
+    if (!response.ok) {
+      const retryError = await response.text();
+      throw new Error(formatChatApiError(
+        retryError || firstError,
+        `GPT chat stream request failed with status ${response.status}`
+      ));
+    }
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(formatChatApiError(errorText, `GPT chat stream request failed with status ${response.status}`));
+  }
+
+  if (!response.body) {
+    throw new Error('GPT chat stream response is empty');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let content = '';
+  let responseModel = model;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split(/\r?\n\r?\n/);
+    buffer = events.pop() || '';
+
+    for (const event of events) {
+      const data = event
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('data: '))
+        .map((line) => line.slice(6))
+        .join('\n')
+        .trim();
+
+      if (!data) continue;
+      if (data === '[DONE]') {
+        return { content, model: responseModel };
+      }
+
+      const parsed = JSON.parse(data);
+      responseModel = parsed.model || responseModel;
+      content += parsed.choices[0]?.delta?.content || '';
+    }
+  }
+
+  return { content, model: responseModel };
 }
 
 export async function streamGptChatCompletion(messages, res, options = {}) {
@@ -142,7 +242,7 @@ export async function streamGptChatCompletion(messages, res, options = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || `GPT chat stream failed with status ${response.status}`);
+    throw new Error(formatChatApiError(errorText, `GPT chat stream failed with status ${response.status}`));
   }
 
   if (!response.body) {
@@ -158,15 +258,16 @@ export async function streamGptChatCompletion(messages, res, options = {}) {
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split('\n\n');
+    const events = buffer.split(/\r?\n\r?\n/);
     buffer = events.pop() || '';
 
     for (const event of events) {
       const data = event
-        .split('\n')
+        .split(/\r?\n/)
         .filter((line) => line.startsWith('data: '))
         .map((line) => line.slice(6))
-        .join('\n');
+        .join('\n')
+        .trim();
 
       if (!data) continue;
       if (data === '[DONE]') {

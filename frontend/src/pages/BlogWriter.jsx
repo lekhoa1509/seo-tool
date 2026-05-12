@@ -29,6 +29,19 @@ function escapeHtml(value = '') {
   }[char]));
 }
 
+function normalizeErrorMessage(message, fallback = 'Có lỗi xảy ra') {
+  const cleaned = String(message || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (/504 Gateway Time-out/i.test(cleaned)) {
+    return 'AI provider bị timeout (504). Hãy thử lại; nút tạo bài đã dùng streaming để hạn chế lỗi request dài.';
+  }
+
+  return cleaned || fallback;
+}
+
 function buildImageFigure(featuredImage) {
   const src = imageToSrc(featuredImage?.image);
   if (!src) return '';
@@ -254,21 +267,125 @@ export default function BlogWriter() {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!form.topic.trim()) return;
+    if (!form.topic.trim() || loading || streaming) return;
     setLoading(true);
     setError('');
     setData(null);
     setStreamContent('');
     setStreamImage(null);
     setStreamImageError('');
-    setStreamStatus(null);
+    setStreamStatus({
+      status: 'content-queued',
+      phase: 'content',
+      message: 'Đang chuẩn bị viết bài',
+      totalImages: form.includeImages ? 1 : 0,
+    });
     const validKeywords = form.keywords.filter((k) => k.trim());
+
     try {
-      const result = await blogAPI.generate({ ...form, keywords: validKeywords });
-      setData(result);
-      setActiveTab('content');
+      const apiBase = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${apiBase}/api/blog/generate-stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, keywords: validKeywords }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let message = text;
+
+        try {
+          message = JSON.parse(text).error || text;
+        } catch {}
+
+        throw new Error(normalizeErrorMessage(message, 'Không tạo được bài'));
+      }
+
+      if (!response.body) {
+        throw new Error('Không nhận được dữ liệu stream');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let lastArticle = null;
+      let fatalError = '';
+
+      const handleGeneratePayload = (rawData) => {
+        if (!rawData) return false;
+
+        if (rawData === '[DONE]') {
+          return true;
+        }
+
+        try {
+          const parsed = JSON.parse(rawData);
+
+          if (parsed.status) {
+            setStreamStatus((current) => ({
+              ...(current || {}),
+              ...parsed,
+            }));
+          }
+
+          if (parsed.status === 'error' && parsed.error) {
+            fatalError = parsed.error;
+            return true;
+          }
+
+          if (parsed.imageError) {
+            setStreamImageError(parsed.imageError);
+          }
+
+          if (parsed.article) {
+            lastArticle = parsed.article;
+            setData(parsed.article);
+            setActiveTab('content');
+          }
+        } catch {}
+
+        return false;
+      };
+
+      const processBuffer = () => {
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+          const eventData = event
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith('data: '))
+            .map((line) => line.slice(6))
+            .join('\n')
+            .trim();
+
+          if (handleGeneratePayload(eventData)) return true;
+        }
+
+        return false;
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          buffer += decoder.decode();
+          processBuffer();
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        if (processBuffer()) break;
+      }
+
+      if (fatalError) {
+        throw new Error(normalizeErrorMessage(fatalError));
+      }
+
+      if (!lastArticle) {
+        throw new Error('AI chưa trả về dữ liệu bài viết hoàn chỉnh');
+      }
     } catch (err) {
-      setError(err.message);
+      setError(normalizeErrorMessage(err.message));
     } finally {
       setLoading(false);
     }
@@ -371,12 +488,12 @@ export default function BlogWriter() {
       };
 
       const processBuffer = () => {
-        const events = buffer.split('\n\n');
+        const events = buffer.split(/\r?\n\r?\n/);
         buffer = events.pop() || '';
 
         for (const event of events) {
           const data = event
-            .split('\n')
+            .split(/\r?\n/)
             .filter((line) => line.startsWith('data: '))
             .map((line) => line.slice(6))
             .join('\n')
@@ -400,7 +517,7 @@ export default function BlogWriter() {
         if (processBuffer()) return;
       }
     } catch (err) {
-      setError(err.message);
+      setError(normalizeErrorMessage(err.message));
     } finally {
       setStreaming(false);
     }
@@ -420,7 +537,7 @@ export default function BlogWriter() {
       setTitlesData(result);
       setActiveTab('titles');
     } catch (err) {
-      setError(err.message);
+      setError(normalizeErrorMessage(err.message));
     } finally {
       setLoading(false);
     }
@@ -481,7 +598,7 @@ export default function BlogWriter() {
       
       setWpResult(result);
     } catch (err) {
-      setWpError(err.message || 'Lỗi khi đăng bài lên WordPress');
+      setWpError(normalizeErrorMessage(err.message, 'Lỗi khi đăng bài lên WordPress'));
     } finally {
       setWpPublishing(false);
     }
@@ -656,14 +773,14 @@ export default function BlogWriter() {
       )}
 
       {/* Stream output */}
-      {(streaming || streamContent) && !data && (
+      {((loading && streamStatus) || streaming || streamContent) && !data && (
         <>
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                 <Wand2 size={16} className="text-pink-500" />
                 Nội dung đang tạo
-                {streaming && (
+                {(loading || streaming) && (
                   <span className="flex gap-1 ml-2">
                     <span className="typing-dot text-primary-500" />
                     <span className="typing-dot text-primary-500" />

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   buildChatMessages,
   createGptChatCompletion,
+  createGptChatCompletionStream,
   streamGptChatCompletion,
 } from '../services/gptChat.js';
 import { createSeoImage } from '../services/gptImage.js';
@@ -79,7 +80,8 @@ function parseJsonCompletion(text) {
 }
 
 async function jsonCompletion(systemPrompt, userPrompt, options = {}) {
-  const result = await createGptChatCompletion(
+  const complete = options.stream ? createGptChatCompletionStream : createGptChatCompletion;
+  const result = await complete(
     buildChatMessages([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -93,6 +95,19 @@ async function jsonCompletion(systemPrompt, userPrompt, options = {}) {
   }
 
   return { data, model: result.model };
+}
+
+function startSse(res) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+}
+
+function writeDone(res) {
+  if (res.writableEnded) return;
+  res.write('data: [DONE]\n\n');
+  res.end();
 }
 
 function buildArticlePrompts({
@@ -294,6 +309,7 @@ router.post('/generate', async (req, res) => {
     const { data: article, model } = await jsonCompletion(systemPrompt, userPrompt, {
       max_tokens: 8000,
       temperature: 0.8,
+      stream: true,
     });
 
     const payload = {
@@ -321,6 +337,153 @@ router.post('/generate', async (req, res) => {
     res.json(payload);
   } catch (err) {
     console.error('Blog generation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/generate-stream', async (req, res) => {
+  let progressTimer;
+
+  try {
+    const {
+      topic,
+      keywords = [],
+      tone = 'professional',
+      language = 'Vietnamese',
+      wordCount = 1500,
+      contentType = 'blog-post',
+      targetAudience = 'general',
+      includeOutline = true,
+      includeImages = false,
+    } = req.body;
+
+    if (!topic) {
+      res.status(400).json({ error: 'topic is required' });
+      return;
+    }
+
+    const wantsImages = parseBoolean(includeImages);
+    const totalSteps = wantsImages ? 2 : 1;
+    const totalImages = wantsImages ? 1 : 0;
+    const startedAt = Date.now();
+
+    const { systemPrompt, userPrompt, mode } = buildArticlePrompts({
+      topic,
+      keywords,
+      tone,
+      language,
+      wordCount,
+      contentType,
+      targetAudience,
+      includeOutline,
+    });
+
+    startSse(res);
+
+    const writeStatus = (payload) => writeStreamEvent(res, {
+      step: 1,
+      totalSteps,
+      totalImages,
+      elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+      ...payload,
+    });
+
+    const stopProgress = () => {
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+    };
+
+    res.once('close', stopProgress);
+
+    writeStatus({
+      status: 'content-queued',
+      phase: 'content',
+      message: 'Đang chuẩn bị viết bài',
+    });
+
+    progressTimer = setInterval(() => {
+      writeStatus({
+        status: 'content-generating',
+        phase: 'content',
+        message: 'Đang viết bài SEO',
+      });
+    }, 5000);
+
+    const { data: article, model } = await jsonCompletion(systemPrompt, userPrompt, {
+      max_tokens: 8000,
+      temperature: 0.8,
+      stream: true,
+    });
+
+    stopProgress();
+
+    const payload = {
+      ...article,
+      contentType: mode.value,
+      contentModel: model,
+      imageRequested: wantsImages,
+    };
+
+    writeStatus({
+      status: 'content-complete',
+      phase: 'content',
+      message: wantsImages ? 'Đã viết xong bài. Chuẩn bị tạo ảnh 1/1' : 'Đã viết xong bài',
+      step: wantsImages ? 2 : 1,
+      imageIndex: wantsImages ? 0 : undefined,
+    });
+
+    if (wantsImages) {
+      try {
+        payload.featuredImage = await createFeaturedImageForArticleWithProgress(
+          {
+            article,
+            topic,
+            keywords,
+            contentType: mode.value,
+            targetAudience,
+          },
+          res,
+          { imageIndex: 1, totalImages }
+        );
+      } catch (imageErr) {
+        console.error('Featured image generation error:', imageErr);
+        payload.imageError = imageErr.message;
+        writeStreamEvent(res, {
+          status: 'image-error',
+          phase: 'image',
+          message: 'Không tạo được ảnh 1/1',
+          imageError: imageErr.message,
+          imageIndex: 1,
+          totalImages,
+        });
+      }
+    }
+
+    writeStreamEvent(res, {
+      status: 'done',
+      phase: 'done',
+      message: 'Hoàn tất',
+      article: payload,
+      totalImages,
+    });
+    writeDone(res);
+  } catch (err) {
+    if (progressTimer) clearInterval(progressTimer);
+    console.error('Blog generation stream error:', err);
+
+    if (res.headersSent) {
+      writeStreamEvent(res, {
+        status: 'error',
+        phase: 'content',
+        message: err.message,
+        error: err.message,
+      });
+      writeDone(res);
+      return;
+    }
+
     res.status(500).json({ error: err.message });
   }
 });
