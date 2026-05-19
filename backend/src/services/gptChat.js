@@ -7,7 +7,12 @@ const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant inside an SEO prod
 Answer naturally, be practical, and match the user's language.
 When the user asks for SEO, content, coding, or analysis, give concrete steps and useful examples.`;
 
-function getChatConfig() {
+const ALLOWED_MODELS = new Set([
+  'cx/gpt-5.5',
+  'kr/claude-opus-4.7',
+]);
+
+function getChatConfig(modelOverride) {
   const apiKey = process.env.GPT_CHAT_API_KEY;
   const baseURL = process.env.GPT_CHAT_BASE_URL?.replace(/\/$/, '');
 
@@ -19,11 +24,12 @@ function getChatConfig() {
     throw new Error('GPT chat base URL is not configured. Please set GPT_CHAT_BASE_URL in backend/.env');
   }
 
-  return {
-    apiKey,
-    baseURL,
-    model: process.env.GPT_CHAT_MODEL || DEFAULT_MODEL,
-  };
+  let model = modelOverride || process.env.GPT_CHAT_MODEL || DEFAULT_MODEL;
+  if (!ALLOWED_MODELS.has(model)) {
+    model = DEFAULT_MODEL;
+  }
+
+  return { apiKey, baseURL, model };
 }
 
 function formatChatApiError(errorText, fallbackMessage) {
@@ -39,18 +45,64 @@ function formatChatApiError(errorText, fallbackMessage) {
   return cleaned || fallbackMessage;
 }
 
+function normalizeContent(content) {
+  if (typeof content === 'string') {
+    return content.trim();
+  }
+
+  if (!Array.isArray(content)) {
+    return '';
+  }
+
+  const parts = content
+    .map((part) => {
+      if (!part || typeof part !== 'object') return null;
+
+      if (part.type === 'text' && typeof part.text === 'string') {
+        const text = part.text.trim();
+        return text ? { type: 'text', text } : null;
+      }
+
+      if (part.type === 'image_url') {
+        const url = typeof part.image_url === 'string'
+          ? part.image_url
+          : part.image_url?.url;
+
+        if (!url) return null;
+        return { type: 'image_url', image_url: { url } };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+
+  if (!parts.length) return '';
+
+  if (parts.length === 1 && parts[0].type === 'text') {
+    return parts[0].text;
+  }
+
+  return parts;
+}
+
 export function buildChatMessages(messages = [], systemPrompt = DEFAULT_SYSTEM_PROMPT) {
   if (!Array.isArray(messages)) {
     throw new Error('messages must be an array');
   }
 
   const normalized = messages
-    .filter((message) => message && typeof message.content === 'string')
-    .map((message) => ({
-      role: ['system', 'user', 'assistant'].includes(message.role) ? message.role : 'user',
-      content: message.content.trim(),
-    }))
-    .filter((message) => message.content)
+    .map((message) => {
+      if (!message) return null;
+      const role = ['system', 'user', 'assistant'].includes(message.role) ? message.role : 'user';
+      const content = normalizeContent(message.content);
+
+      if (!content || (Array.isArray(content) && !content.length)) {
+        return null;
+      }
+
+      return { role, content };
+    })
+    .filter(Boolean)
     .slice(-40);
 
   if (!normalized.length) {
@@ -64,7 +116,7 @@ export function buildChatMessages(messages = [], systemPrompt = DEFAULT_SYSTEM_P
 }
 
 export async function createGptChatCompletion(messages, options = {}) {
-  const { apiKey, baseURL, model } = getChatConfig();
+  const { apiKey, baseURL, model } = getChatConfig(options.model);
   const payload = {
     model,
     messages,
@@ -121,7 +173,7 @@ export async function createGptChatCompletion(messages, options = {}) {
 }
 
 export async function createGptChatCompletionStream(messages, options = {}) {
-  const { apiKey, baseURL, model } = getChatConfig();
+  const { apiKey, baseURL, model } = getChatConfig(options.model);
   const payload = {
     model,
     messages,
@@ -130,11 +182,7 @@ export async function createGptChatCompletionStream(messages, options = {}) {
     stream: true,
   };
 
-  if (options.json) {
-    payload.response_format = { type: 'json_object' };
-  }
-
-  const request = () => fetch(`${baseURL}/chat/completions`, {
+  const response = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -142,22 +190,6 @@ export async function createGptChatCompletionStream(messages, options = {}) {
     },
     body: JSON.stringify(payload),
   });
-
-  let response = await request();
-
-  if (!response.ok && payload.response_format) {
-    const firstError = await response.text();
-    delete payload.response_format;
-    response = await request();
-
-    if (!response.ok) {
-      const retryError = await response.text();
-      throw new Error(formatChatApiError(
-        retryError || firstError,
-        `GPT chat stream request failed with status ${response.status}`
-      ));
-    }
-  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -205,7 +237,7 @@ export async function createGptChatCompletionStream(messages, options = {}) {
 }
 
 export async function streamGptChatCompletion(messages, res, options = {}) {
-  const { apiKey, baseURL, model } = getChatConfig();
+  const { apiKey, baseURL, model } = getChatConfig(options.model);
   const writeDone = options.writeDone !== false;
   const endResponse = options.endResponse !== false;
 
@@ -224,6 +256,8 @@ export async function streamGptChatCompletion(messages, res, options = {}) {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
   options.onReady?.({ model, res });
+
+  res.write(`event: meta\ndata: ${JSON.stringify({ model })}\n\n`);
 
   const response = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',
@@ -285,3 +319,5 @@ export async function streamGptChatCompletion(messages, res, options = {}) {
 
   finishStream();
 }
+
+export const SUPPORTED_CHAT_MODELS = Array.from(ALLOWED_MODELS);
