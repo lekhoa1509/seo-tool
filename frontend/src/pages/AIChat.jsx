@@ -34,12 +34,18 @@ const MODELS = [
     description: 'Tốc độ nhanh, đa năng',
   },
   {
-    id: 'kr/claude-opus-4.7',
+    id: 'cc/claude-opus-4-7',
     label: 'Claude Opus 4.7',
-    sub: 'kr/claude-opus-4.7',
+    sub: 'cc/claude-opus-4-7',
     description: 'Lý luận sâu, viết dài',
   },
 ];
+
+const MODEL_ALIASES = {
+  'kr/claude-opus-4.7': 'cc/claude-opus-4-7',
+  'kr/claude-opus-4-7': 'cc/claude-opus-4-7',
+  'cc/claude-opus-4.7': 'cc/claude-opus-4-7',
+};
 
 const MODES = [
   { id: 'balanced', label: 'Cân bằng' },
@@ -76,6 +82,11 @@ function loadStored(key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function normalizeModelId(value) {
+  const modelId = MODEL_ALIASES[value] || value;
+  return MODELS.some((entry) => entry.id === modelId) ? modelId : MODELS[0].id;
 }
 
 function loadStoredMessages() {
@@ -157,7 +168,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState(loadStoredMessages);
   const [input, setInput] = useState('');
   const [mode, setMode] = useState(() => loadStored(MODE_KEY, 'balanced'));
-  const [model, setModel] = useState(() => loadStored(MODEL_KEY, MODELS[0].id));
+  const [model, setModel] = useState(() => normalizeModelId(loadStored(MODEL_KEY, MODELS[0].id)));
   const [attachments, setAttachments] = useState([]);
   const [streaming, setStreaming] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);

@@ -9,8 +9,18 @@ When the user asks for SEO, content, coding, or analysis, give concrete steps an
 
 const ALLOWED_MODELS = new Set([
   'cx/gpt-5.5',
-  'kr/claude-opus-4.7',
+  'cc/claude-opus-4-7',
 ]);
+
+const MODEL_ALIASES = new Map([
+  ['kr/claude-opus-4.7', 'cc/claude-opus-4-7'],
+  ['kr/claude-opus-4-7', 'cc/claude-opus-4-7'],
+  ['cc/claude-opus-4.7', 'cc/claude-opus-4-7'],
+]);
+
+function normalizeModel(model) {
+  return MODEL_ALIASES.get(model) || model;
+}
 
 function getChatConfig(modelOverride) {
   const apiKey = process.env.GPT_CHAT_API_KEY;
@@ -24,7 +34,7 @@ function getChatConfig(modelOverride) {
     throw new Error('GPT chat base URL is not configured. Please set GPT_CHAT_BASE_URL in backend/.env');
   }
 
-  let model = modelOverride || process.env.GPT_CHAT_MODEL || DEFAULT_MODEL;
+  let model = normalizeModel(modelOverride || process.env.GPT_CHAT_MODEL || DEFAULT_MODEL);
   if (!ALLOWED_MODELS.has(model)) {
     model = DEFAULT_MODEL;
   }
