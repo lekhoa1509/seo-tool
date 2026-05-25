@@ -6,6 +6,11 @@ import {
   streamGptChatCompletion,
 } from '../services/gptChat.js';
 import { createSeoImage } from '../services/gptImage.js';
+import {
+  previewProductTabSync,
+  syncProductTabs,
+  validateProductTabCredentials,
+} from '../services/productTabs.js';
 
 const router = Router();
 
@@ -47,6 +52,10 @@ function getContentMode(contentType = 'blog-post') {
 
 function parseBoolean(value) {
   return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+function getProductTabsErrorStatus(error) {
+  return /Thiếu|required|không hợp lệ/i.test(error?.message || '') ? 400 : 500;
 }
 
 function writeStreamEvent(res, payload) {
@@ -708,6 +717,70 @@ router.post('/publish-wordpress', async (req, res) => {
   } catch (err) {
     console.error('WordPress publish error:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/wp-product-tabs/preview', async (req, res) => {
+  try {
+    const {
+      wpUrl,
+      wooConsumerKey,
+      wooConsumerSecret,
+      sheetUrl,
+      minConfidence,
+    } = req.body;
+
+    validateProductTabCredentials({
+      wpUrl,
+      consumerKey: wooConsumerKey,
+      consumerSecret: wooConsumerSecret,
+      sheetUrl,
+    });
+
+    const result = await previewProductTabSync({
+      wpUrl,
+      consumerKey: wooConsumerKey,
+      consumerSecret: wooConsumerSecret,
+      sheetUrl,
+      minConfidence,
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('WooCommerce product tab preview error:', err);
+    res.status(getProductTabsErrorStatus(err)).json({ error: err.message });
+  }
+});
+
+router.post('/wp-product-tabs/sync', async (req, res) => {
+  try {
+    const {
+      wpUrl,
+      wooConsumerKey,
+      wooConsumerSecret,
+      sheetUrl,
+      minConfidence,
+    } = req.body;
+
+    validateProductTabCredentials({
+      wpUrl,
+      consumerKey: wooConsumerKey,
+      consumerSecret: wooConsumerSecret,
+      sheetUrl,
+    });
+
+    const result = await syncProductTabs({
+      wpUrl,
+      consumerKey: wooConsumerKey,
+      consumerSecret: wooConsumerSecret,
+      sheetUrl,
+      minConfidence,
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('WooCommerce product tab sync error:', err);
+    res.status(getProductTabsErrorStatus(err)).json({ error: err.message });
   }
 });
 

@@ -64,6 +64,8 @@ export const blogAPI = {
   improve: (data) => api.post('/blog/improve', data),
   titles: (data) => api.post('/blog/titles', data),
   publishWordPress: (data) => api.post('/blog/publish-wordpress', data),
+  previewProductTabs: (data) => api.post('/blog/wp-product-tabs/preview', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  syncProductTabs: (data) => api.post('/blog/wp-product-tabs/sync', data, { timeout: LONG_RUNNING_TIMEOUT }),
 };
 
 export const chatAPI = {

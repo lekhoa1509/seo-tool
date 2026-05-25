@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   PenTool, Loader2, Plus, X, Copy, Download, Sparkles,
   RefreshCw, CheckCircle, Tag, Clock, BookOpen, Wand2, Globe, Send,
-  Image as ImageIcon, Package
+  Image as ImageIcon, Package, Search, UploadCloud, AlertTriangle, KeyRound,
+  ExternalLink, Table
 } from 'lucide-react';
 import { blogAPI } from '../utils/api';
 
@@ -10,6 +11,8 @@ const contentTypes = [
   { value: 'blog-post', label: 'Blog SEO', icon: PenTool },
   { value: 'product-post', label: 'Bài sản phẩm', icon: Package },
 ];
+
+const DEFAULT_PRODUCT_TABS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/18QrqwiFxNmAf9OoriH9gbJhtEZvD6XeY/edit?pli=1&gid=1356650069#gid=1356650069';
 
 function imageToSrc(image, outputFormat = 'png') {
   if (!image) return '';
@@ -194,6 +197,282 @@ function StreamProgressPanel({ progress, includeImages, hasContent, imageSrc, im
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function formatConfidence(value) {
+  return `${Math.round((Number(value) || 0) * 100)}%`;
+}
+
+function matchLabel(match) {
+  if (match?.error || match?.matchType === 'error') return 'Lỗi';
+  if (match?.matched) return match.matchType === 'exact' ? 'Exact' : 'Match';
+  if (match?.bestCandidate) return 'Cần kiểm tra';
+  return 'Không thấy';
+}
+
+function syncActionLabel(row) {
+  if (row?.action === 'updated') return 'Đã cập nhật';
+  if (row?.action === 'skipped') return 'Bỏ qua';
+  if (row?.action === 'error') return 'Lỗi';
+  return matchLabel(row);
+}
+
+function matchClass(match) {
+  if (match?.error || match?.matchType === 'error') return 'bg-rose-50 text-rose-700 border-rose-100';
+  if (match?.matched && match?.matchType === 'exact') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+  if (match?.matched) return 'bg-blue-50 text-blue-700 border-blue-100';
+  if (match?.bestCandidate) return 'bg-amber-50 text-amber-700 border-amber-100';
+  return 'bg-slate-50 text-slate-600 border-slate-200';
+}
+
+function ProductTabsSyncPanel() {
+  const [tabsForm, setTabsForm] = useState({
+    wpUrl: localStorage.getItem('woo_wp_url') || localStorage.getItem('wp_url') || '',
+    wooConsumerKey: localStorage.getItem('woo_consumer_key') || '',
+    wooConsumerSecret: localStorage.getItem('woo_consumer_secret') || '',
+    sheetUrl: localStorage.getItem('product_tabs_sheet_url') || DEFAULT_PRODUCT_TABS_SHEET_URL,
+    minConfidence: Number(localStorage.getItem('product_tabs_min_confidence') || 0.82),
+  });
+  const [preview, setPreview] = useState(null);
+  const [syncResult, setSyncResult] = useState(null);
+  const [tabsError, setTabsError] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+
+  const updateTabsForm = (patch) => {
+    setTabsForm((current) => ({ ...current, ...patch }));
+    setPreview(null);
+    setSyncResult(null);
+  };
+
+  const persistTabsForm = () => {
+    localStorage.setItem('woo_wp_url', tabsForm.wpUrl);
+    localStorage.setItem('woo_consumer_key', tabsForm.wooConsumerKey);
+    localStorage.setItem('woo_consumer_secret', tabsForm.wooConsumerSecret);
+    localStorage.setItem('product_tabs_sheet_url', tabsForm.sheetUrl);
+    localStorage.setItem('product_tabs_min_confidence', String(tabsForm.minConfidence));
+  };
+
+  const buildTabsPayload = () => ({
+    wpUrl: tabsForm.wpUrl,
+    wooConsumerKey: tabsForm.wooConsumerKey,
+    wooConsumerSecret: tabsForm.wooConsumerSecret,
+    sheetUrl: tabsForm.sheetUrl,
+    minConfidence: Number(tabsForm.minConfidence) || 0.82,
+  });
+
+  const handlePreviewTabs = async (event) => {
+    event.preventDefault();
+    setPreviewLoading(true);
+    setTabsError('');
+    setSyncResult(null);
+    persistTabsForm();
+
+    try {
+      const result = await blogAPI.previewProductTabs(buildTabsPayload());
+      setPreview(result);
+    } catch (err) {
+      setTabsError(normalizeErrorMessage(err.message, 'Không preview được sản phẩm WooCommerce'));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleSyncTabs = async () => {
+    setSyncLoading(true);
+    setTabsError('');
+    persistTabsForm();
+
+    try {
+      const result = await blogAPI.syncProductTabs(buildTabsPayload());
+      setSyncResult(result);
+      setPreview(null);
+    } catch (err) {
+      setTabsError(normalizeErrorMessage(err.message, 'Không cập nhật được tab sản phẩm'));
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const rows = preview?.matches || syncResult?.results || [];
+  const visibleRows = rows.slice(0, 12);
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+            <Table size={18} className="text-blue-500" />
+            Cập nhật tab sản phẩm WooCommerce
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">Google Sheet sang meta tab Hướng dẫn sử dụng và Hướng dẫn bảo quản.</p>
+        </div>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+          Match bằng tên/SKU/slug
+        </span>
+      </div>
+
+      <form onSubmit={handlePreviewTabs} className="space-y-4 p-5">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            <label className="label">URL Website WordPress *</label>
+            <input
+              type="url"
+              className="input"
+              placeholder="https://paper.vn"
+              value={tabsForm.wpUrl}
+              onChange={(e) => updateTabsForm({ wpUrl: e.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Google Sheet URL *</label>
+            <input
+              type="url"
+              className="input"
+              value={tabsForm.sheetUrl}
+              onChange={(e) => updateTabsForm({ sheetUrl: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_180px]">
+          <div>
+            <label className="label">WooCommerce Consumer Key *</label>
+            <div className="relative">
+              <KeyRound size={15} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="password"
+                className="input pl-9"
+                placeholder="ck_..."
+                value={tabsForm.wooConsumerKey}
+                onChange={(e) => updateTabsForm({ wooConsumerKey: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className="label">WooCommerce Consumer Secret *</label>
+            <div className="relative">
+              <KeyRound size={15} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="password"
+                className="input pl-9"
+                placeholder="cs_..."
+                value={tabsForm.wooConsumerSecret}
+                onChange={(e) => updateTabsForm({ wooConsumerSecret: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className="label">Độ khớp tối thiểu</label>
+            <input
+              type="number"
+              min="0.6"
+              max="1"
+              step="0.01"
+              className="input"
+              value={tabsForm.minConfidence}
+              onChange={(e) => updateTabsForm({ minConfidence: e.target.value })}
+            />
+          </div>
+        </div>
+
+        {tabsError && (
+          <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            {tabsError}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          <button type="submit" className="btn-outline" disabled={previewLoading || syncLoading}>
+            {previewLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+            Preview match
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleSyncTabs}
+            disabled={syncLoading || previewLoading || !preview?.matchedCount}
+          >
+            {syncLoading ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
+            Cập nhật tabs
+          </button>
+          {preview?.matchedCount > 0 && (
+            <span className="text-sm text-slate-500">
+              Sẽ cập nhật {preview.matchedCount}/{preview.totalRows} sản phẩm.
+            </span>
+          )}
+        </div>
+      </form>
+
+      {(preview || syncResult) && (
+        <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
+          <div className="mb-4 grid gap-3 md:grid-cols-4">
+            {[
+              { label: 'Dòng sheet', value: preview?.totalRows ?? syncResult?.totalRows },
+              { label: preview ? 'Match được' : 'Đã cập nhật', value: preview?.matchedCount ?? syncResult?.updatedCount },
+              { label: 'Bỏ qua', value: preview?.skippedCount ?? syncResult?.skippedCount },
+              { label: 'Lỗi', value: preview?.errorCount ?? syncResult?.errorCount },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{item.label}</p>
+                <p className="mt-1 text-2xl font-bold text-slate-800">{item.value ?? 0}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <div className="min-w-[820px]">
+              <div className="grid grid-cols-[72px_1.4fr_1.4fr_110px_120px] gap-3 border-b border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>Dòng</span>
+                <span>Tên trong sheet</span>
+                <span>Sản phẩm WP</span>
+                <span>Độ khớp</span>
+                <span>Trạng thái</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {visibleRows.map((row) => {
+                  const product = row.product || row.bestCandidate;
+                  return (
+                    <div key={`${row.rowNumber}-${row.productName}`} className="grid grid-cols-[72px_1.4fr_1.4fr_110px_120px] gap-3 px-4 py-3 text-sm">
+                      <span className="text-slate-400">{row.sheetIndex || row.rowNumber}</span>
+                      <span className="min-w-0 break-words font-medium text-slate-700">{row.productName}</span>
+                      <span className="min-w-0 break-words text-slate-600">
+                        {product ? (
+                          row.product?.permalink ? (
+                            <a href={row.product.permalink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
+                              {product.name}
+                              <ExternalLink size={12} />
+                            </a>
+                          ) : product.name
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </span>
+                      <span className="text-slate-600">{formatConfidence(row.confidence)}</span>
+                      <span>
+                        <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-medium ${matchClass(row)}`}>
+                          {syncResult ? syncActionLabel(row) : matchLabel(row)}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {rows.length > visibleRows.length && (
+            <p className="mt-3 text-xs text-slate-500">Đang hiển thị {visibleRows.length}/{rows.length} dòng đầu tiên.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -765,6 +1044,8 @@ export default function BlogWriter() {
           </div>
         </form>
       </div>
+
+      <ProductTabsSyncPanel />
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
