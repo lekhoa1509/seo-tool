@@ -97,7 +97,7 @@ export default function KeywordResearch() {
           <Search size={24} className="text-blue-500" />
           Keyword Research
         </h1>
-        <p className="text-slate-500 text-sm mt-1">Nghiên cứu từ khóa với AI GPT-4.1 Mini</p>
+        <p className="text-slate-500 text-sm mt-1">Nghiên cứu từ khóa với cx/gpt-5.5</p>
       </div>
 
       {/* Form */}
@@ -159,7 +159,7 @@ export default function KeywordResearch() {
           <div className="w-12 h-12 loading-spinner" />
           <div className="text-center">
             <p className="font-medium text-slate-700">AI đang phân tích từ khóa...</p>
-            <p className="text-sm text-slate-400 mt-1">GPT-4.1 Mini đang xử lý dữ liệu</p>
+            <p className="text-sm text-slate-400 mt-1">cx/gpt-5.5 đang xử lý dữ liệu</p>
           </div>
         </div>
       )}

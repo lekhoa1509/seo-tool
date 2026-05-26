@@ -68,6 +68,12 @@ export const blogAPI = {
   syncProductTabs: (data) => api.post('/blog/wp-product-tabs/sync', data, { timeout: LONG_RUNNING_TIMEOUT }),
 };
 
+export const productTabsAPI = {
+  listProducts: (data) => api.post('/product-tabs/products', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  getProduct: (data) => api.post('/product-tabs/product', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  saveProductTabs: (data) => api.post('/product-tabs/save', data, { timeout: LONG_RUNNING_TIMEOUT }),
+};
+
 export const chatAPI = {
   message: (data) => api.post('/chat/message', data),
 };

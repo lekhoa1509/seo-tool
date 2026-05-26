@@ -1,7 +1,55 @@
 import { Router } from 'express';
-import { chatCompletion } from '../services/openai.js';
+import {
+  buildChatMessages,
+  createGptChatCompletion,
+} from '../services/gptChat.js';
 
 const router = Router();
+const KEYWORD_MODEL = 'cx/gpt-5.5';
+
+function cleanJsonText(text) {
+  return String(text || '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+}
+
+function parseJsonCompletion(text) {
+  const cleaned = cleanJsonText(text);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+
+    if (start >= 0 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    }
+
+    throw new Error('GPT returned invalid JSON');
+  }
+}
+
+async function keywordJsonCompletion(systemPrompt, userPrompt, options = {}) {
+  const result = await createGptChatCompletion(
+    buildChatMessages([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ]),
+    {
+      ...options,
+      json: true,
+      model: KEYWORD_MODEL,
+    }
+  );
+
+  return {
+    data: parseJsonCompletion(result.content),
+    model: result.model,
+  };
+}
 
 router.post('/research', async (req, res) => {
   try {
@@ -48,9 +96,8 @@ Return a JSON object with this exact structure:
 
 Make the data realistic and specific to the niche. searchVolume should be monthly searches.`;
 
-    const result = await chatCompletion(systemPrompt, userPrompt, { json: true, max_tokens: 5000 });
-    const data = JSON.parse(result);
-    res.json(data);
+    const { data, model } = await keywordJsonCompletion(systemPrompt, userPrompt, { max_tokens: 5000 });
+    res.json({ ...data, model });
   } catch (err) {
     console.error('Keyword research error:', err);
     res.status(500).json({ error: err.message });
@@ -95,8 +142,8 @@ Return JSON:
   }
 }`;
 
-    const result = await chatCompletion(systemPrompt, userPrompt, { json: true });
-    res.json(JSON.parse(result));
+    const { data, model } = await keywordJsonCompletion(systemPrompt, userPrompt);
+    res.json({ ...data, model });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

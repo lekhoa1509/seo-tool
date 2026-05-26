@@ -213,7 +213,8 @@ function matchLabel(match) {
 }
 
 function syncActionLabel(row) {
-  if (row?.action === 'updated') return 'Đã cập nhật';
+  if (row?.action === 'updated' && row?.verified) return 'Đã lưu meta';
+  if (row?.action === 'updated') return 'Đã gọi API';
   if (row?.action === 'skipped') return 'Bỏ qua';
   if (row?.action === 'error') return 'Lỗi';
   return matchLabel(row);
@@ -417,7 +418,7 @@ function ProductTabsSyncPanel() {
             {[
               { label: 'Dòng sheet', value: preview?.totalRows ?? syncResult?.totalRows },
               { label: preview ? 'Match được' : 'Đã cập nhật', value: preview?.matchedCount ?? syncResult?.updatedCount },
-              { label: 'Bỏ qua', value: preview?.skippedCount ?? syncResult?.skippedCount },
+              { label: preview ? 'Bỏ qua' : 'Đã lưu meta', value: preview?.skippedCount ?? syncResult?.verifiedCount },
               { label: 'Lỗi', value: preview?.errorCount ?? syncResult?.errorCount },
             ].map((item) => (
               <div key={item.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -439,14 +440,15 @@ function ProductTabsSyncPanel() {
               <div className="divide-y divide-slate-100">
                 {visibleRows.map((row) => {
                   const product = row.product || row.bestCandidate;
+                  const productHref = product?.editUrl || product?.permalink;
                   return (
                     <div key={`${row.rowNumber}-${row.productName}`} className="grid grid-cols-[72px_1.4fr_1.4fr_110px_120px] gap-3 px-4 py-3 text-sm">
                       <span className="text-slate-400">{row.sheetIndex || row.rowNumber}</span>
                       <span className="min-w-0 break-words font-medium text-slate-700">{row.productName}</span>
                       <span className="min-w-0 break-words text-slate-600">
                         {product ? (
-                          row.product?.permalink ? (
-                            <a href={row.product.permalink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
+                          productHref ? (
+                            <a href={productHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
                               {product.name}
                               <ExternalLink size={12} />
                             </a>
@@ -1044,8 +1046,6 @@ export default function BlogWriter() {
           </div>
         </form>
       </div>
-
-      <ProductTabsSyncPanel />
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">

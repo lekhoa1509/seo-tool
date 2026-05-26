@@ -1,6 +1,8 @@
 const DEFAULT_MIN_CONFIDENCE = 0.82;
 const USAGE_META_KEY = '_tgg_usage_instructions';
 const STORAGE_META_KEY = '_tgg_storage_instructions';
+const CUSTOM_TABS_META_KEY = '_tgg_custom_product_tabs';
+const MAX_MANUAL_TABS = 8;
 
 function stripTrailingSlash(value = '') {
   return String(value || '').replace(/\/+$/, '');
@@ -130,6 +132,94 @@ function textToTabHtml(value = '') {
 
   flushList();
   return blocks.join('\n');
+}
+
+function hasHtmlTags(value = '') {
+  return /<\/?[a-z][\s\S]*>/i.test(String(value || ''));
+}
+
+function tabInputToHtml(value = '') {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return hasHtmlTags(text) ? text : textToTabHtml(text);
+}
+
+function normalizeManualTabs(tabs = []) {
+  if (!Array.isArray(tabs)) return [];
+
+  return tabs
+    .slice(0, MAX_MANUAL_TABS)
+    .map((tab, index) => {
+      const title = String(tab?.title || '').trim();
+      const content = tabInputToHtml(tab?.content || '');
+
+      return {
+        title,
+        content,
+        priority: Number(tab?.priority) || 34 + index,
+      };
+    })
+    .filter((tab) => tab.title && tab.content);
+}
+
+function getMetaValue(product, key) {
+  const metaData = Array.isArray(product?.meta_data) ? product.meta_data : [];
+  return metaData.find((item) => item.key === key)?.value || '';
+}
+
+function parseCustomTabs(value = '') {
+  if (Array.isArray(value)) return normalizeManualTabs(value);
+
+  try {
+    const parsed = JSON.parse(String(value || '[]'));
+    return normalizeManualTabs(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function titleMatches(title = '', needles = []) {
+  const folded = foldText(title);
+  return needles.some((needle) => folded.includes(needle));
+}
+
+function getLegacyMetaFromTabs(tabs = []) {
+  const usageTab = tabs.find((tab) => titleMatches(tab.title, ['huong dan su dung', 'cach su dung', 'su dung']));
+  const storageTab = tabs.find((tab) => titleMatches(tab.title, ['huong dan bao quan', 'bao quan']));
+
+  return {
+    usageHtml: usageTab?.content || '',
+    storageHtml: storageTab?.content || '',
+  };
+}
+
+function extractProductTabs(product) {
+  const customTabs = parseCustomTabs(getMetaValue(product, CUSTOM_TABS_META_KEY));
+  const tabs = [...customTabs];
+  const hasUsageCustomTab = customTabs.some((tab) => titleMatches(tab.title, ['huong dan su dung', 'cach su dung']));
+  const hasStorageCustomTab = customTabs.some((tab) => titleMatches(tab.title, ['huong dan bao quan', 'bao quan']));
+  const usageHtml = String(getMetaValue(product, USAGE_META_KEY) || '');
+  const storageHtml = String(getMetaValue(product, STORAGE_META_KEY) || '');
+
+  if (usageHtml && !hasUsageCustomTab) {
+    tabs.push({
+      title: 'Hướng dẫn sử dụng',
+      content: usageHtml,
+      priority: 35,
+      source: 'legacy',
+    });
+  }
+
+  if (storageHtml && !hasStorageCustomTab) {
+    tabs.push({
+      title: 'Hướng dẫn bảo quản',
+      content: storageHtml,
+      priority: 36,
+      source: 'legacy',
+    });
+  }
+
+  return tabs;
 }
 
 function extractRowsFromCsv(csvText) {
@@ -267,13 +357,24 @@ function scoreCandidate(sourceRow, candidate) {
   return Math.max(containsScore, tokenScore);
 }
 
-function compactProduct(product) {
+function buildProductEditUrl(wpUrl, productId) {
+  if (!wpUrl || !productId) return '';
+  return `${stripTrailingSlash(wpUrl)}/wp-admin/post.php?post=${productId}&action=edit`;
+}
+
+function compactProduct(product, wpUrl = '') {
   return {
     id: product.id,
     name: product.name,
     slug: product.slug,
     sku: product.sku || '',
     permalink: product.permalink || '',
+    editUrl: buildProductEditUrl(wpUrl, product.id),
+    status: product.status || '',
+    price: product.price || '',
+    regularPrice: product.regular_price || '',
+    salePrice: product.sale_price || '',
+    image: product.images?.[0]?.src || '',
   };
 }
 
@@ -281,7 +382,7 @@ function buildWooAuth(consumerKey, consumerSecret) {
   return Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
 }
 
-async function wooFetch({ wpUrl, consumerKey, consumerSecret }, path, options = {}) {
+async function wooFetchResponse({ wpUrl, consumerKey, consumerSecret }, path, options = {}) {
   const baseUrl = stripTrailingSlash(wpUrl);
   const response = await fetch(`${baseUrl}/wp-json/wc/v3${path}`, {
     ...options,
@@ -306,6 +407,11 @@ async function wooFetch({ wpUrl, consumerKey, consumerSecret }, path, options = 
     throw new Error(message);
   }
 
+  return { data, response };
+}
+
+async function wooFetch(credentials, path, options = {}) {
+  const { data } = await wooFetchResponse(credentials, path, options);
   return data;
 }
 
@@ -340,7 +446,7 @@ export async function findProductMatch(credentials, row, minConfidence = DEFAULT
   const candidates = await searchProducts(credentials, row);
   const scoredCandidates = candidates
     .map((product) => ({
-      product: compactProduct(product),
+      product: compactProduct(product, credentials.wpUrl),
       confidence: Number(scoreCandidate(row, product).toFixed(3)),
     }))
     .sort((a, b) => b.confidence - a.confidence);
@@ -358,6 +464,99 @@ export async function findProductMatch(credentials, row, minConfidence = DEFAULT
     product: matched ? best.product : null,
     bestCandidate: best?.product || null,
     candidates: scoredCandidates.slice(0, 3),
+  };
+}
+
+export async function listWooProducts({
+  wpUrl,
+  consumerKey,
+  consumerSecret,
+  search = '',
+  page = 1,
+  perPage = 20,
+  status = 'any',
+}) {
+  const credentials = { wpUrl, consumerKey, consumerSecret };
+  const currentPage = Math.max(1, Number(page) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number(perPage) || 20));
+  const params = new URLSearchParams({
+    page: String(currentPage),
+    per_page: String(pageSize),
+    status: status || 'any',
+  });
+
+  if (String(search || '').trim()) {
+    params.set('search', String(search).trim());
+  }
+
+  const { data, response } = await wooFetchResponse(credentials, `/products?${params.toString()}`);
+  const products = Array.isArray(data) ? data.map((product) => compactProduct(product, wpUrl)) : [];
+  const total = Number(response.headers.get('x-wp-total')) || products.length;
+  const totalPages = Number(response.headers.get('x-wp-totalpages')) || 1;
+
+  return {
+    products,
+    page: currentPage,
+    perPage: pageSize,
+    total,
+    totalPages,
+  };
+}
+
+export async function getWooProductTabs({ wpUrl, consumerKey, consumerSecret, productId }) {
+  const credentials = { wpUrl, consumerKey, consumerSecret };
+  const product = await wooFetch(credentials, `/products/${encodeURIComponent(productId)}?context=edit`);
+
+  return {
+    product: compactProduct(product, wpUrl),
+    tabs: extractProductTabs(product),
+    metaKeys: {
+      customTabs: CUSTOM_TABS_META_KEY,
+      usage: USAGE_META_KEY,
+      storage: STORAGE_META_KEY,
+    },
+  };
+}
+
+export async function saveWooProductTabs({ wpUrl, consumerKey, consumerSecret, productId, tabs = [] }) {
+  const credentials = { wpUrl, consumerKey, consumerSecret };
+  const normalizedTabs = normalizeManualTabs(tabs);
+
+  if (!productId) {
+    throw new Error('Thiếu productId.');
+  }
+
+  if (!normalizedTabs.length) {
+    throw new Error('Cần nhập ít nhất 1 tab có tiêu đề và nội dung.');
+  }
+
+  const legacyMeta = getLegacyMetaFromTabs(normalizedTabs);
+
+  await wooFetch(credentials, `/products/${encodeURIComponent(productId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      meta_data: [
+        { key: CUSTOM_TABS_META_KEY, value: JSON.stringify(normalizedTabs) },
+        { key: USAGE_META_KEY, value: legacyMeta.usageHtml },
+        { key: STORAGE_META_KEY, value: legacyMeta.storageHtml },
+      ],
+    }),
+  });
+
+  const updatedProduct = await wooFetch(credentials, `/products/${encodeURIComponent(productId)}?context=edit`);
+  const savedCustomTabs = parseCustomTabs(getMetaValue(updatedProduct, CUSTOM_TABS_META_KEY));
+
+  return {
+    success: true,
+    product: compactProduct(updatedProduct, wpUrl),
+    tabs: savedCustomTabs,
+    savedCount: savedCustomTabs.length,
+    verified: JSON.stringify(savedCustomTabs) === JSON.stringify(normalizedTabs),
+    metaKeys: {
+      customTabs: CUSTOM_TABS_META_KEY,
+      usage: USAGE_META_KEY,
+      storage: STORAGE_META_KEY,
+    },
   };
 }
 
@@ -462,11 +661,26 @@ export async function syncProductTabs({ wpUrl, consumerKey, consumerSecret, shee
         }),
       });
 
+      const updatedProduct = await wooFetch(credentials, `/products/${match.product.id}?context=edit`);
+      const metaData = Array.isArray(updatedProduct?.meta_data) ? updatedProduct.meta_data : [];
+      const usageValue = metaData.find((item) => item.key === USAGE_META_KEY)?.value || '';
+      const storageValue = metaData.find((item) => item.key === STORAGE_META_KEY)?.value || '';
+      const usageSaved = String(usageValue) === row.usageHtml;
+      const storageSaved = String(storageValue) === row.storageHtml;
+
       return {
         ...match,
+        product: compactProduct(updatedProduct, wpUrl),
         action: 'updated',
         usageUpdated: Boolean(row.usageHtml),
         storageUpdated: Boolean(row.storageHtml),
+        usageSaved,
+        storageSaved,
+        verified: usageSaved && storageSaved,
+        savedMetaLengths: {
+          usage: String(usageValue).length,
+          storage: String(storageValue).length,
+        },
       };
     } catch (error) {
       return {
@@ -486,12 +700,14 @@ export async function syncProductTabs({ wpUrl, consumerKey, consumerSecret, shee
   });
 
   const updatedCount = results.filter((result) => result.action === 'updated').length;
+  const verifiedCount = results.filter((result) => result.action === 'updated' && result.verified).length;
   const skippedCount = results.filter((result) => result.action === 'skipped').length;
   const errorCount = results.filter((result) => result.action === 'error').length;
 
   return {
     totalRows: rows.length,
     updatedCount,
+    verifiedCount,
     skippedCount,
     errorCount,
     minConfidence: confidence,
@@ -503,8 +719,16 @@ export async function syncProductTabs({ wpUrl, consumerKey, consumerSecret, shee
   };
 }
 
+export function validateWooCredentials({ wpUrl, consumerKey, consumerSecret }) {
+  if (!wpUrl || !consumerKey || !consumerSecret) {
+    throw new Error('Thiếu URL WordPress hoặc Woo Consumer Key/Secret.');
+  }
+}
+
 export function validateProductTabCredentials({ wpUrl, consumerKey, consumerSecret, sheetUrl }) {
-  if (!wpUrl || !consumerKey || !consumerSecret || !sheetUrl) {
-    throw new Error('Thiếu URL WordPress, Woo Consumer Key/Secret hoặc Google Sheet URL.');
+  validateWooCredentials({ wpUrl, consumerKey, consumerSecret });
+
+  if (!sheetUrl) {
+    throw new Error('Thiếu Google Sheet URL.');
   }
 }

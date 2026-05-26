@@ -11,6 +11,7 @@ import GoogleSearchConsole from './pages/GoogleSearchConsole';
 import AIChat from './pages/AIChat';
 import SEOImageGenerator from './pages/SEOImageGenerator';
 import OrganicSales from './pages/OrganicSales';
+import ProductTabs from './pages/ProductTabs';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="competitors" element={<CompetitorAnalysis />} />
           <Route path="content" element={<ContentOptimization />} />
           <Route path="blog" element={<BlogWriter />} />
+          <Route path="product-tabs" element={<ProductTabs />} />
           <Route path="gsc" element={<GoogleSearchConsole />} />
           <Route path="chat" element={<AIChat />} />
           <Route path="images" element={<SEOImageGenerator />} />

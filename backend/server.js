@@ -11,6 +11,7 @@ import chatRouter from './src/routes/chat.js';
 import imagesRouter from './src/routes/images.js';
 import documentsRouter from './src/routes/documents.js';
 import salesRouter from './src/routes/sales.js';
+import productTabsRouter from './src/routes/productTabs.js';
 
 dotenv.config();
 
@@ -19,7 +20,9 @@ const PORT = process.env.PORT || 3001;
 
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://127.0.0.1:5173',
   'http://localhost:4173',
+  'http://127.0.0.1:4173',
   process.env.FRONTEND_URL,
   ...(process.env.CORS_ORIGINS || '')
     .split(',')
@@ -55,6 +58,7 @@ app.use('/api/chat', chatRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/sales', salesRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/product-tabs', productTabsRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -6,6 +6,7 @@ import {
   Globe,
   Users,
   FileText,
+  Package,
   PenTool,
   BarChart2,
   MessageSquare,
@@ -57,6 +58,12 @@ const navItems = [
     icon: PenTool,
     color: 'text-pink-500',
     badge: 'AI',
+  },
+  {
+    label: 'Tab sản phẩm',
+    path: '/product-tabs',
+    icon: Package,
+    color: 'text-cyan-500',
   },
   {
     label: 'Chat GPT',
