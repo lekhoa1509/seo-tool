@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Search, Globe, Users, FileText, PenTool, BarChart2,
   ArrowRight, Sparkles, TrendingUp, Zap, Shield, MessageSquare, Image as ImageIcon,
+  Package, FileSearch,
 } from 'lucide-react';
 
 const tools = [
@@ -57,6 +58,26 @@ const tools = [
     features: ['Blog SEO', 'Bài sản phẩm', 'FAQ Schema', 'Ảnh AI'],
   },
   {
+    title: 'Tab sản phẩm',
+    description: 'Quản lý tab hướng dẫn sử dụng và bảo quản cho sản phẩm WooCommerce',
+    icon: Package,
+    path: '/product-tabs',
+    color: 'from-cyan-500 to-blue-600',
+    bgColor: 'bg-cyan-50',
+    textColor: 'text-cyan-600',
+    features: ['WooCommerce', 'Google Sheet', 'Usage Tab', 'Storage Tab'],
+  },
+  {
+    title: 'Tìm bài viết WP',
+    description: 'Lọc bài viết WordPress theo cụm từ đang xuất hiện trong H1',
+    icon: FileSearch,
+    path: '/wp-post-finder',
+    color: 'from-rose-500 to-red-600',
+    bgColor: 'bg-rose-50',
+    textColor: 'text-rose-600',
+    features: ['WordPress', 'H1 Filter', 'Post Status', 'Edit Link'],
+  },
+  {
     title: 'Chat GPT',
     description: 'Trò chuyện trực tiếp với GPT-5.5 để brainstorm, phân tích SEO, viết nội dung và hỗ trợ code',
     icon: MessageSquare,
@@ -100,7 +121,7 @@ const tools = [
 
 const stats = [
   { label: 'AI Chat Model', value: 'GPT-5.5', icon: Sparkles, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  { label: 'Tools Available', value: '9 Tools', icon: Zap, color: 'text-blue-600', bg: 'bg-blue-50' },
+  { label: 'Tools Available', value: '11 Tools', icon: Zap, color: 'text-blue-600', bg: 'bg-blue-50' },
   { label: 'SEO Checks', value: '50+ Checks', icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   { label: 'Performance', value: 'Real-time', icon: TrendingUp, color: 'text-orange-600', bg: 'bg-orange-50' },
 ];

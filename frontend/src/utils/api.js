@@ -72,6 +72,15 @@ export const productTabsAPI = {
   listProducts: (data) => api.post('/product-tabs/products', data, { timeout: LONG_RUNNING_TIMEOUT }),
   getProduct: (data) => api.post('/product-tabs/product', data, { timeout: LONG_RUNNING_TIMEOUT }),
   saveProductTabs: (data) => api.post('/product-tabs/save', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  previewSync: (data) => api.post('/product-tabs/preview', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  syncFromSheet: (data) => api.post('/product-tabs/sync', data, { timeout: LONG_RUNNING_TIMEOUT }),
+  googleStatus: () => api.get('/product-tabs/google/status'),
+  googleAuth: () => api.get('/product-tabs/google/auth'),
+  markMissingProducts: (data) => api.post('/product-tabs/mark-missing', data, { timeout: LONG_RUNNING_TIMEOUT }),
+};
+
+export const wpPostFinderAPI = {
+  search: (data) => api.post('/wp-post-finder/search', data, { timeout: LONG_RUNNING_TIMEOUT }),
 };
 
 export const chatAPI = {

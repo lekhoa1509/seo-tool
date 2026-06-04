@@ -3,14 +3,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const DEFAULT_BASE_URL = 'https://khoaapi.duckdns.org/v1';
+const DEFAULT_MODEL = 'cx/gpt-5.5';
+const baseURL = (process.env.GPT_CHAT_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.GPT_CHAT_API_KEY || process.env.OPENAI_API_KEY,
+  baseURL,
 });
 
-const MODEL = 'gpt-4.1-mini';
+const MODEL = process.env.GPT_CHAT_MODEL || DEFAULT_MODEL;
 
 export async function chatCompletion(systemPrompt, userPrompt, options = {}) {
-  const response = await openai.chat.completions.create({
+  const payload = {
     model: MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -19,7 +24,17 @@ export async function chatCompletion(systemPrompt, userPrompt, options = {}) {
     temperature: options.temperature ?? 0.7,
     max_tokens: options.max_tokens ?? 4000,
     response_format: options.json ? { type: 'json_object' } : undefined,
-  });
+  };
+
+  let response;
+  try {
+    response = await openai.chat.completions.create(payload);
+  } catch (error) {
+    if (!payload.response_format) throw error;
+
+    delete payload.response_format;
+    response = await openai.chat.completions.create(payload);
+  }
 
   return response.choices[0].message.content;
 }

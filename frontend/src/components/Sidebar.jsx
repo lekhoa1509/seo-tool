@@ -15,6 +15,7 @@ import {
   X,
   Sparkles,
   ChevronRight,
+  FileSearch,
 } from 'lucide-react';
 
 const navItems = [
@@ -64,6 +65,12 @@ const navItems = [
     path: '/product-tabs',
     icon: Package,
     color: 'text-cyan-500',
+  },
+  {
+    label: 'Tìm bài viết WP',
+    path: '/wp-post-finder',
+    icon: FileSearch,
+    color: 'text-rose-500',
   },
   {
     label: 'Chat GPT',

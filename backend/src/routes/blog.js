@@ -58,6 +58,18 @@ function getProductTabsErrorStatus(error) {
   return /Thiếu|required|không hợp lệ/i.test(error?.message || '') ? 400 : 500;
 }
 
+function readBarn2TabKeys(body = {}) {
+  return {
+    usage: body.barn2TabKeys?.usage || body.barn2UsageTabKey,
+    storage: body.barn2TabKeys?.storage || body.barn2StorageTabKey,
+  };
+}
+
+function readBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
 function writeStreamEvent(res, payload) {
   if (res.writableEnded) return;
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -743,6 +755,8 @@ router.post('/wp-product-tabs/preview', async (req, res) => {
       consumerSecret: wooConsumerSecret,
       sheetUrl,
       minConfidence,
+      barn2TabKeys: readBarn2TabKeys(req.body),
+      scanAllSheets: readBoolean(req.body.scanAllSheets),
     });
 
     res.json(result);
@@ -775,6 +789,9 @@ router.post('/wp-product-tabs/sync', async (req, res) => {
       consumerSecret: wooConsumerSecret,
       sheetUrl,
       minConfidence,
+      barn2TabKeys: readBarn2TabKeys(req.body),
+      scanAllSheets: readBoolean(req.body.scanAllSheets),
+      syncTarget: req.body.syncTarget,
     });
 
     res.json(result);

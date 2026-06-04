@@ -13,6 +13,9 @@ const contentTypes = [
 ];
 
 const DEFAULT_PRODUCT_TABS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/18QrqwiFxNmAf9OoriH9gbJhtEZvD6XeY/edit?pli=1&gid=1356650069#gid=1356650069';
+const DEFAULT_BARN2_USAGE_TAB_KEY = 'wpt-38110';
+const DEFAULT_BARN2_STORAGE_TAB_KEY = 'wpt-38106';
+const SHEET_ROWS_PAGE_SIZE = 12;
 
 function imageToSrc(image, outputFormat = 'png') {
   if (!image) return '';
@@ -205,6 +208,12 @@ function formatConfidence(value) {
   return `${Math.round((Number(value) || 0) * 100)}%`;
 }
 
+function formatSheetRow(row) {
+  const sheet = row?.sheetName ? row.sheetName.replace(/^\d+\.\s*/, '') : '';
+  const index = row?.sheetIndex || row?.rowNumber || '-';
+  return sheet ? `${sheet} / ${index}` : index;
+}
+
 function matchLabel(match) {
   if (match?.error || match?.matchType === 'error') return 'Lỗi';
   if (match?.matched) return match.matchType === 'exact' ? 'Exact' : 'Match';
@@ -213,7 +222,10 @@ function matchLabel(match) {
 }
 
 function syncActionLabel(row) {
-  if (row?.action === 'updated' && row?.verified) return 'Đã lưu meta';
+  const barn2 = row?.integrations?.barn2;
+  if (row?.action === 'updated' && barn2?.verified) return 'Đã lưu Product Tabs';
+  if (row?.action === 'updated' && barn2?.available && !barn2?.verified) return 'Chưa xác nhận Product Tabs';
+  if (row?.action === 'updated' && row?.verified) return 'Đã lưu TGG meta';
   if (row?.action === 'updated') return 'Đã gọi API';
   if (row?.action === 'skipped') return 'Bỏ qua';
   if (row?.action === 'error') return 'Lỗi';
@@ -235,17 +247,22 @@ function ProductTabsSyncPanel() {
     wooConsumerSecret: localStorage.getItem('woo_consumer_secret') || '',
     sheetUrl: localStorage.getItem('product_tabs_sheet_url') || DEFAULT_PRODUCT_TABS_SHEET_URL,
     minConfidence: Number(localStorage.getItem('product_tabs_min_confidence') || 0.82),
+    scanAllSheets: localStorage.getItem('product_tabs_scan_all_sheets') !== 'false',
+    barn2UsageTabKey: localStorage.getItem('barn2_usage_tab_key') || DEFAULT_BARN2_USAGE_TAB_KEY,
+    barn2StorageTabKey: localStorage.getItem('barn2_storage_tab_key') || DEFAULT_BARN2_STORAGE_TAB_KEY,
   });
   const [preview, setPreview] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
   const [tabsError, setTabsError] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [sheetPage, setSheetPage] = useState(1);
 
   const updateTabsForm = (patch) => {
     setTabsForm((current) => ({ ...current, ...patch }));
     setPreview(null);
     setSyncResult(null);
+    setSheetPage(1);
   };
 
   const persistTabsForm = () => {
@@ -254,6 +271,9 @@ function ProductTabsSyncPanel() {
     localStorage.setItem('woo_consumer_secret', tabsForm.wooConsumerSecret);
     localStorage.setItem('product_tabs_sheet_url', tabsForm.sheetUrl);
     localStorage.setItem('product_tabs_min_confidence', String(tabsForm.minConfidence));
+    localStorage.setItem('product_tabs_scan_all_sheets', String(tabsForm.scanAllSheets));
+    localStorage.setItem('barn2_usage_tab_key', tabsForm.barn2UsageTabKey);
+    localStorage.setItem('barn2_storage_tab_key', tabsForm.barn2StorageTabKey);
   };
 
   const buildTabsPayload = () => ({
@@ -262,6 +282,9 @@ function ProductTabsSyncPanel() {
     wooConsumerSecret: tabsForm.wooConsumerSecret,
     sheetUrl: tabsForm.sheetUrl,
     minConfidence: Number(tabsForm.minConfidence) || 0.82,
+    scanAllSheets: tabsForm.scanAllSheets,
+    barn2UsageTabKey: tabsForm.barn2UsageTabKey,
+    barn2StorageTabKey: tabsForm.barn2StorageTabKey,
   });
 
   const handlePreviewTabs = async (event) => {
@@ -274,6 +297,7 @@ function ProductTabsSyncPanel() {
     try {
       const result = await blogAPI.previewProductTabs(buildTabsPayload());
       setPreview(result);
+      setSheetPage(1);
     } catch (err) {
       setTabsError(normalizeErrorMessage(err.message, 'Không preview được sản phẩm WooCommerce'));
     } finally {
@@ -290,6 +314,7 @@ function ProductTabsSyncPanel() {
       const result = await blogAPI.syncProductTabs(buildTabsPayload());
       setSyncResult(result);
       setPreview(null);
+      setSheetPage(1);
     } catch (err) {
       setTabsError(normalizeErrorMessage(err.message, 'Không cập nhật được tab sản phẩm'));
     } finally {
@@ -298,7 +323,12 @@ function ProductTabsSyncPanel() {
   };
 
   const rows = preview?.matches || syncResult?.results || [];
-  const visibleRows = rows.slice(0, 12);
+  const sheetTotalPages = Math.max(1, Math.ceil(rows.length / SHEET_ROWS_PAGE_SIZE));
+  const currentSheetPage = Math.min(sheetPage, sheetTotalPages);
+  const sheetStartIndex = (currentSheetPage - 1) * SHEET_ROWS_PAGE_SIZE;
+  const visibleRows = rows.slice(sheetStartIndex, sheetStartIndex + SHEET_ROWS_PAGE_SIZE);
+  const sheetEndIndex = sheetStartIndex + visibleRows.length;
+  const barn2 = preview?.integrations?.barn2 || syncResult?.integrations?.barn2;
 
   return (
     <div className="card overflow-hidden">
@@ -383,10 +413,48 @@ function ProductTabsSyncPanel() {
           </div>
         </div>
 
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            <label className="label">Barn2 tab key - Hướng dẫn sử dụng</label>
+            <input
+              type="text"
+              className="input"
+              value={tabsForm.barn2UsageTabKey}
+              onChange={(e) => updateTabsForm({ barn2UsageTabKey: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Barn2 tab key - Hướng dẫn bảo quản</label>
+            <input
+              type="text"
+              className="input"
+              value={tabsForm.barn2StorageTabKey}
+              onChange={(e) => updateTabsForm({ barn2StorageTabKey: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+            checked={tabsForm.scanAllSheets}
+            onChange={(e) => updateTabsForm({ scanAllSheets: e.target.checked })}
+          />
+          Quét tất cả sheet/tab trong file
+        </label>
+
         {tabsError && (
           <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
             {tabsError}
+          </div>
+        )}
+
+        {barn2?.warning && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            {barn2.warning}
           </div>
         )}
 
@@ -414,11 +482,19 @@ function ProductTabsSyncPanel() {
 
       {(preview || syncResult) && (
         <div className="border-t border-slate-200 bg-slate-50 px-5 py-4">
-          <div className="mb-4 grid gap-3 md:grid-cols-4">
+          <div className="mb-4 grid gap-3 md:grid-cols-5">
             {[
               { label: 'Dòng sheet', value: preview?.totalRows ?? syncResult?.totalRows },
+              { label: 'Sheet đã quét', value: preview?.source?.sheetCount ?? syncResult?.source?.sheetCount ?? 1 },
               { label: preview ? 'Match được' : 'Đã cập nhật', value: preview?.matchedCount ?? syncResult?.updatedCount },
-              { label: preview ? 'Bỏ qua' : 'Đã lưu meta', value: preview?.skippedCount ?? syncResult?.verifiedCount },
+              {
+                label: preview
+                  ? 'Bỏ qua'
+                  : syncResult?.integrations?.barn2?.available
+                    ? 'Đã lưu Product Tabs'
+                    : 'Đã lưu TGG meta',
+                value: preview?.skippedCount ?? syncResult?.verifiedCount,
+              },
               { label: 'Lỗi', value: preview?.errorCount ?? syncResult?.errorCount },
             ].map((item) => (
               <div key={item.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -429,9 +505,9 @@ function ProductTabsSyncPanel() {
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <div className="min-w-[820px]">
-              <div className="grid grid-cols-[72px_1.4fr_1.4fr_110px_120px] gap-3 border-b border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <span>Dòng</span>
+            <div className="min-w-[920px]">
+              <div className="grid grid-cols-[150px_1.4fr_1.4fr_110px_120px] gap-3 border-b border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>Sheet / STT</span>
                 <span>Tên trong sheet</span>
                 <span>Sản phẩm WP</span>
                 <span>Độ khớp</span>
@@ -442,8 +518,8 @@ function ProductTabsSyncPanel() {
                   const product = row.product || row.bestCandidate;
                   const productHref = product?.editUrl || product?.permalink;
                   return (
-                    <div key={`${row.rowNumber}-${row.productName}`} className="grid grid-cols-[72px_1.4fr_1.4fr_110px_120px] gap-3 px-4 py-3 text-sm">
-                      <span className="text-slate-400">{row.sheetIndex || row.rowNumber}</span>
+                    <div key={`${row.sheetName || 'sheet'}-${row.rowNumber}-${row.productName}`} className="grid grid-cols-[150px_1.4fr_1.4fr_110px_120px] gap-3 px-4 py-3 text-sm">
+                      <span className="break-words text-slate-400">{formatSheetRow(row)}</span>
                       <span className="min-w-0 break-words font-medium text-slate-700">{row.productName}</span>
                       <span className="min-w-0 break-words text-slate-600">
                         {product ? (
@@ -470,8 +546,31 @@ function ProductTabsSyncPanel() {
             </div>
           </div>
 
-          {rows.length > visibleRows.length && (
-            <p className="mt-3 text-xs text-slate-500">Đang hiển thị {visibleRows.length}/{rows.length} dòng đầu tiên.</p>
+          {rows.length > SHEET_ROWS_PAGE_SIZE && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+              <span>
+                Đang hiển thị {sheetStartIndex + 1}-{sheetEndIndex}/{rows.length} dòng.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-outline text-xs"
+                  disabled={currentSheetPage <= 1}
+                  onClick={() => setSheetPage((page) => Math.max(1, page - 1))}
+                >
+                  Trang trước
+                </button>
+                <span>{currentSheetPage}/{sheetTotalPages}</span>
+                <button
+                  type="button"
+                  className="btn-outline text-xs"
+                  disabled={currentSheetPage >= sheetTotalPages}
+                  onClick={() => setSheetPage((page) => Math.min(sheetTotalPages, page + 1))}
+                >
+                  Trang sau
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}

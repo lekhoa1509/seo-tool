@@ -1,26 +1,21 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
+import {
+  disconnectGoogleAuth,
+  getAuthenticatedGoogleClient,
+  getGoogleAuthStatus,
+  getGoogleAuthUrl,
+  handleGoogleOAuthCallback,
+  isGoogleConfigured,
+} from '../services/googleAuth.js';
 
 dotenv.config();
 
 const router = Router();
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/gsc/callback'
-);
-
-const SCOPES = [
-  'https://www.googleapis.com/auth/webmasters.readonly',
-  'https://www.googleapis.com/auth/webmasters',
-];
-
-let tokens = null;
-
 router.get('/auth', (req, res) => {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  if (!isGoogleConfigured()) {
     return res.status(400).json({
       error: 'Google OAuth not configured',
       message: 'Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env file',
@@ -35,11 +30,7 @@ router.get('/auth', (req, res) => {
     });
   }
 
-  const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES,
-    prompt: 'consent',
-  });
+  const authUrl = getGoogleAuthUrl({ returnTo: req.query.returnTo || '/gsc' });
 
   res.json({ authUrl });
 });
@@ -48,12 +39,8 @@ router.get('/callback', async (req, res) => {
   const { code } = req.query;
 
   try {
-    const { tokens: newTokens } = await oauth2Client.getToken(code);
-    tokens = newTokens;
-    oauth2Client.setCredentials(tokens);
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    res.redirect(`${frontendUrl}/gsc?connected=true`);
+    const redirectUrl = await handleGoogleOAuthCallback(code, req.query.state);
+    res.redirect(redirectUrl);
   } catch (err) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(`${frontendUrl}/gsc?error=${encodeURIComponent(err.message)}`);
@@ -61,22 +48,17 @@ router.get('/callback', async (req, res) => {
 });
 
 router.get('/status', (req, res) => {
-  res.json({
-    connected: !!tokens,
-    configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-  });
+  res.json(getGoogleAuthStatus());
 });
 
 router.post('/disconnect', (req, res) => {
-  tokens = null;
+  disconnectGoogleAuth();
   res.json({ success: true });
 });
 
 router.get('/sites', async (req, res) => {
-  if (!tokens) return res.status(401).json({ error: 'Not authenticated. Please connect GSC first.' });
-
   try {
-    oauth2Client.setCredentials(tokens);
+    const oauth2Client = getAuthenticatedGoogleClient();
     const searchconsole = google.searchconsole({ version: 'v1', auth: oauth2Client });
     const response = await searchconsole.sites.list();
     res.json({ sites: response.data.siteEntry || [] });
@@ -86,14 +68,12 @@ router.get('/sites', async (req, res) => {
 });
 
 router.post('/performance', async (req, res) => {
-  if (!tokens) return res.status(401).json({ error: 'Not authenticated.' });
-
   try {
     const { siteUrl, startDate, endDate, dimensions = ['query'], rowLimit = 25 } = req.body;
 
     if (!siteUrl) return res.status(400).json({ error: 'siteUrl is required' });
 
-    oauth2Client.setCredentials(tokens);
+    const oauth2Client = getAuthenticatedGoogleClient();
     const searchconsole = google.searchconsole({ version: 'v1', auth: oauth2Client });
 
     const end = endDate || new Date().toISOString().split('T')[0];
@@ -122,14 +102,12 @@ router.post('/performance', async (req, res) => {
 });
 
 router.post('/pages', async (req, res) => {
-  if (!tokens) return res.status(401).json({ error: 'Not authenticated.' });
-
   try {
     const { siteUrl, startDate, endDate, rowLimit = 25 } = req.body;
 
     if (!siteUrl) return res.status(400).json({ error: 'siteUrl is required' });
 
-    oauth2Client.setCredentials(tokens);
+    const oauth2Client = getAuthenticatedGoogleClient();
     const searchconsole = google.searchconsole({ version: 'v1', auth: oauth2Client });
 
     const end = endDate || new Date().toISOString().split('T')[0];
@@ -157,13 +135,11 @@ router.post('/pages', async (req, res) => {
 });
 
 router.post('/summary', async (req, res) => {
-  if (!tokens) return res.status(401).json({ error: 'Not authenticated.' });
-
   try {
     const { siteUrl } = req.body;
     if (!siteUrl) return res.status(400).json({ error: 'siteUrl is required' });
 
-    oauth2Client.setCredentials(tokens);
+    const oauth2Client = getAuthenticatedGoogleClient();
     const searchconsole = google.searchconsole({ version: 'v1', auth: oauth2Client });
 
     const end = new Date().toISOString().split('T')[0];

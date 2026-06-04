@@ -12,6 +12,7 @@ import AIChat from './pages/AIChat';
 import SEOImageGenerator from './pages/SEOImageGenerator';
 import OrganicSales from './pages/OrganicSales';
 import ProductTabs from './pages/ProductTabs';
+import WpPostFinder from './pages/WpPostFinder';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="content" element={<ContentOptimization />} />
           <Route path="blog" element={<BlogWriter />} />
           <Route path="product-tabs" element={<ProductTabs />} />
+          <Route path="wp-post-finder" element={<WpPostFinder />} />
           <Route path="gsc" element={<GoogleSearchConsole />} />
           <Route path="chat" element={<AIChat />} />
           <Route path="images" element={<SEOImageGenerator />} />

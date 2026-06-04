@@ -24,7 +24,7 @@ export default function GoogleSearchConsole() {
   useEffect(() => {
     fetchStatus();
     const params = new URLSearchParams(window.location.search);
-    if (params.get('connected') === 'true') {
+    if (params.get('connected') === 'true' || params.get('googleConnected') === 'true') {
       fetchStatus();
       window.history.replaceState({}, '', '/gsc');
     }

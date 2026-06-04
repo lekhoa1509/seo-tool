@@ -14,7 +14,7 @@
 
 - **Frontend**: React + Vite + TailwindCSS → deploy trên **Vercel**
 - **Backend**: Node.js + Express (ESM) → deploy trên **Railway**
-- **AI**: OpenAI GPT-4.1-mini (`gpt-4.1-mini`)
+- **AI**: cx/gpt-5.5 (`cx/gpt-5.5`)
 
 ---
 
@@ -39,7 +39,9 @@ Mở trình duyệt: http://localhost:5173
 ### Backend (`backend/.env`)
 
 ```env
-OPENAI_API_KEY=sk-proj-...
+GPT_CHAT_BASE_URL=https://khoaapi.duckdns.org/v1
+GPT_CHAT_MODEL=cx/gpt-5.5
+GPT_CHAT_API_KEY=sk-...
 FRONTEND_URL=https://your-app.vercel.app
 PORT=3001
 
@@ -128,7 +130,7 @@ tool SEO for web/
 │   ├── .env.example            # Template
 │   └── src/
 │       ├── services/
-│       │   └── openai.js       # Wrapper GPT-4.1-mini
+│       │   └── openai.js       # Wrapper cx/gpt-5.5
 │       └── routes/
 │           ├── keywords.js
 │           ├── audit.js
@@ -151,9 +153,10 @@ tool SEO for web/
 
 ## Lấy API Keys
 
-### OpenAI
-1. platform.openai.com → API keys → Create new secret key
-2. Model dùng: `gpt-4.1-mini`
+### GPT Chat API
+1. Cấu hình `GPT_CHAT_BASE_URL=https://khoaapi.duckdns.org/v1`
+2. Model dùng: `cx/gpt-5.5`
+3. Thêm API key vào `GPT_CHAT_API_KEY`
 
 ### Google OAuth (cho GSC)
 1. console.cloud.google.com → New Project

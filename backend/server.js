@@ -12,6 +12,7 @@ import imagesRouter from './src/routes/images.js';
 import documentsRouter from './src/routes/documents.js';
 import salesRouter from './src/routes/sales.js';
 import productTabsRouter from './src/routes/productTabs.js';
+import wpPostFinderRouter from './src/routes/wpPostFinder.js';
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use('/api/images', imagesRouter);
 app.use('/api/sales', salesRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/product-tabs', productTabsRouter);
+app.use('/api/wp-post-finder', wpPostFinderRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

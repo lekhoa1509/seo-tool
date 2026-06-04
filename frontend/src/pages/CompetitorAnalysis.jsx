@@ -314,7 +314,7 @@ export default function CompetitorAnalysis() {
           <Users size={24} className="text-orange-500" />
           Phân tích đối thủ cạnh tranh
         </h1>
-        <p className="text-slate-500 text-sm mt-1">Phân tích như SEMrush với AI GPT-4.1 Mini</p>
+        <p className="text-slate-500 text-sm mt-1">Phân tích như SEMrush với cx/gpt-5.5</p>
       </div>
 
       <div className="card p-5">
