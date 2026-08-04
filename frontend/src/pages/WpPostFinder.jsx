@@ -72,9 +72,9 @@ export default function WpPostFinder() {
   const results = result?.results || [];
   const statCards = useMemo(() => [
     { label: 'Đã quét', value: result?.totalScanned },
-    { label: 'Khớp H1', value: result?.matchedCount },
-    { label: 'Khớp tiêu đề', value: result?.titleMatchCount },
-    { label: 'Khớp content H1', value: result?.contentH1MatchCount },
+    { label: 'Tổng số khớp', value: result?.matchedCount },
+    { label: 'Khớp tiêu đề/H1', value: (result?.titleMatchCount || 0) + (result?.contentH1MatchCount || 0) },
+    { label: 'Khớp nội dung', value: result?.bodyMatchCount },
   ], [result]);
 
   const persistForm = () => {
@@ -132,7 +132,7 @@ export default function WpPostFinder() {
             />
           </div>
           <div>
-            <label className="label">Cụm từ trong H1 *</label>
+            <label className="label">Cụm từ cần tìm (tiêu đề, H1, nội dung) *</label>
             <div className="relative">
               <Hash size={15} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
               <input
@@ -227,14 +227,14 @@ export default function WpPostFinder() {
 
           <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-700">
             <CheckCircle size={16} />
-            Tìm thấy {result.matchedCount} bài có H1 chứa "{result.phrase}".
+            Tìm thấy {result.matchedCount} bài chứa "{result.phrase}" (tiêu đề, H1 hoặc nội dung).
           </div>
 
           <div className="overflow-x-auto">
             <div className="min-w-[980px]">
               <div className="grid grid-cols-[1.35fr_1.15fr_150px_130px_150px_110px] gap-3 border-b border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <span>Tiêu đề</span>
-                <span>H1 khớp</span>
+                <span>Đoạn khớp</span>
                 <span>Nguồn</span>
                 <span>Trạng thái</span>
                 <span>Cập nhật</span>
@@ -244,7 +244,7 @@ export default function WpPostFinder() {
               <div className="divide-y divide-slate-100">
                 {!results.length && (
                   <div className="px-4 py-8 text-center text-sm text-slate-400">
-                    Không tìm thấy bài viết có H1 chứa "{result.phrase}".
+                    Không tìm thấy bài viết nào chứa "{result.phrase}".
                   </div>
                 )}
 

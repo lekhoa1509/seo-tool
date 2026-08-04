@@ -139,6 +139,33 @@ function extractPostH1s(item = {}) {
   });
 }
 
+const SNIPPET_RADIUS = 60;
+
+function buildBodySnippet(bodyText, phrase, normalizedPhrase) {
+  const text = String(bodyText || '');
+  if (!text || !normalizedPhrase) return null;
+
+  const lowerIndex = text.toLowerCase().indexOf(phrase.toLowerCase());
+  let index = lowerIndex;
+
+  if (index === -1) {
+    const normalizedBody = normalizeSearchText(text);
+    const normalizedIndex = normalizedBody.indexOf(normalizedPhrase);
+    if (normalizedIndex === -1) return null;
+    // Accent-insensitive fallback: normalization can change string length,
+    // so approximate the original position proportionally.
+    index = Math.round((normalizedIndex / Math.max(normalizedBody.length, 1)) * text.length);
+  }
+
+  const matchLength = lowerIndex !== -1 ? phrase.length : 1;
+  const start = Math.max(0, index - SNIPPET_RADIUS);
+  const end = Math.min(text.length, index + matchLength + SNIPPET_RADIUS);
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < text.length ? '…' : '';
+
+  return `${prefix}${text.slice(start, end).trim()}${suffix}`;
+}
+
 async function listWpPosts({
   wpUrl,
   wpUsername,
@@ -192,6 +219,7 @@ async function listWpPosts({
         modified: item.modified,
         modifiedGmt: item.modified_gmt,
         h1s: extractPostH1s(item),
+        bodyText: stripHtml(readWpContent(item)),
       });
     });
 
@@ -203,7 +231,7 @@ async function listWpPosts({
   return items.slice(0, limit);
 }
 
-export async function searchWpPostsByH1({
+export async function searchWpPosts({
   wpUrl,
   wpUsername,
   wpAppPassword,
@@ -214,7 +242,7 @@ export async function searchWpPostsByH1({
   const cleanPhrase = String(phrase || DEFAULT_PHRASE).trim();
   const normalizedPhrase = normalizeSearchText(cleanPhrase);
   if (!normalizedPhrase) {
-    throw new Error('Thiếu cụm từ cần tìm trong H1.');
+    throw new Error('Thiếu cụm từ cần tìm.');
   }
 
   const selectedStatus = normalizeStatus(status);
@@ -229,11 +257,16 @@ export async function searchWpPostsByH1({
 
   const results = posts
     .map((post) => {
-      const matches = post.h1s.filter((h1) => normalizeSearchText(h1.text).includes(normalizedPhrase));
+      const h1Matches = post.h1s.filter((h1) => normalizeSearchText(h1.text).includes(normalizedPhrase));
+      const bodySnippet = buildBodySnippet(post.bodyText, cleanPhrase, normalizedPhrase);
+      const matches = bodySnippet
+        ? [...h1Matches, { text: bodySnippet, source: 'body', sourceLabel: 'Nội dung bài viết' }]
+        : h1Matches;
       if (!matches.length) return null;
 
+      const { bodyText, ...postWithoutBody } = post;
       return {
-        ...post,
+        ...postWithoutBody,
         matches,
         matchedH1: matches[0]?.text || '',
         matchSources: [...new Set(matches.map((match) => match.sourceLabel))],
@@ -249,6 +282,7 @@ export async function searchWpPostsByH1({
     matchedCount: results.length,
     titleMatchCount: results.filter((item) => item.matches.some((match) => match.source === 'title')).length,
     contentH1MatchCount: results.filter((item) => item.matches.some((match) => match.source === 'content')).length,
+    bodyMatchCount: results.filter((item) => item.matches.some((match) => match.source === 'body')).length,
     results,
   };
 }

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { searchWpPostsByH1 } from '../services/wpPostFinder.js';
+import { searchWpPosts } from '../services/wpPostFinder.js';
 
 const router = Router();
 
@@ -20,7 +20,7 @@ function readPayload(body = {}) {
 
 router.post('/search', async (req, res) => {
   try {
-    const result = await searchWpPostsByH1(readPayload(req.body));
+    const result = await searchWpPosts(readPayload(req.body));
     res.json(result);
   } catch (err) {
     const status = getErrorStatus(err);
