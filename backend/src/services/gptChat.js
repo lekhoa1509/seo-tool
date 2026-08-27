@@ -10,6 +10,7 @@ When the user asks for SEO, content, coding, or analysis, give concrete steps an
 const ALLOWED_MODELS = new Set([
   'cx/gpt-5.5',
   'cc/claude-opus-4-7',
+  'cc/claude-fable-5',
 ]);
 
 const MODEL_ALIASES = new Map([
