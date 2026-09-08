@@ -1,6 +1,6 @@
 {
   "name": "seo-tool-desktop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "SEO Tool packaged as a native macOS app",
   "main": "main.js",
@@ -51,6 +51,7 @@
       "category": "public.app-category.productivity",
       "identity": null
     },
+    "afterSign": "build/afterSign.js",
     "pkg": {
       "installLocation": "/Applications"
     }
