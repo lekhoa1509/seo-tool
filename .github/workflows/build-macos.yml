@@ -1,0 +1,48 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - 'desktop-v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backend deps
+        run: npm ci --omit=dev
+        working-directory: backend
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Install desktop deps
+        run: npm install
+        working-directory: desktop
+
+      - name: Build macOS app (.pkg + .dmg)
+        run: npx electron-builder --mac pkg dmg --publish never
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-tool-macos
+          path: |
+            desktop/dist/*.pkg
+            desktop/dist/*.dmg
+          if-no-files-found: error

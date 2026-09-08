@@ -1,0 +1,51 @@
+{
+  "name": "seo-tool-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SEO Tool packaged as a native macOS app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac pkg dmg"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "vn.dcnet.seotool",
+    "productName": "SEO Tool",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!.env",
+          "!.env.example"
+        ]
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "frontend-dist"
+      }
+    ],
+    "mac": {
+      "target": [
+        "pkg",
+        "dmg"
+      ],
+      "category": "public.app-category.productivity",
+      "identity": null
+    },
+    "pkg": {
+      "installLocation": "/Applications"
+    }
+  }
+}

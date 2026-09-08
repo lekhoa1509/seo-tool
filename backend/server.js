@@ -1,3 +1,8 @@
+// Must be the first import: loads saved desktop-app settings into
+// process.env before any service module reads process.env at import time.
+import './src/config/settingsStore.js';
+
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -13,6 +18,7 @@ import documentsRouter from './src/routes/documents.js';
 import salesRouter from './src/routes/sales.js';
 import productTabsRouter from './src/routes/productTabs.js';
 import wpPostFinderRouter from './src/routes/wpPostFinder.js';
+import settingsRouter from './src/routes/settings.js';
 
 dotenv.config();
 
@@ -61,10 +67,22 @@ app.use('/api/sales', salesRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/product-tabs', productTabsRouter);
 app.use('/api/wp-post-finder', wpPostFinderRouter);
+app.use('/api/settings', settingsRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Set by the desktop (Electron) app so the backend also serves the built
+// frontend from the same origin. Unset in the normal web deployment.
+const frontendDistDir = process.env.SERVE_FRONTEND_DIR;
+if (frontendDistDir) {
+  app.use(express.static(frontendDistDir));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path === '/health') return next();
+    res.sendFile(path.join(frontendDistDir, 'index.html'));
+  });
+}
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

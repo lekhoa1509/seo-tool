@@ -16,7 +16,10 @@ import {
   Sparkles,
   ChevronRight,
   FileSearch,
+  Settings as SettingsIcon,
 } from 'lucide-react';
+
+const isDesktopApp = typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent);
 
 const navItems = [
   {
@@ -99,6 +102,12 @@ const navItems = [
     icon: BarChart2,
     color: 'text-green-500',
   },
+  ...(isDesktopApp ? [{
+    label: 'Cài đặt',
+    path: '/settings',
+    icon: SettingsIcon,
+    color: 'text-slate-500',
+  }] : []),
 ];
 
 export default function Sidebar({ onClose }) {

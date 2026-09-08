@@ -112,4 +112,9 @@ export const gscAPI = {
   getSummary: (data) => api.post('/gsc/summary', data),
 };
 
+export const settingsAPI = {
+  get: () => api.get('/settings'),
+  save: (data) => api.post('/settings', data),
+};
+
 export default api;

@@ -13,6 +13,7 @@ import SEOImageGenerator from './pages/SEOImageGenerator';
 import OrganicSales from './pages/OrganicSales';
 import ProductTabs from './pages/ProductTabs';
 import WpPostFinder from './pages/WpPostFinder';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="chat" element={<AIChat />} />
           <Route path="images" element={<SEOImageGenerator />} />
           <Route path="sales" element={<OrganicSales />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>
