@@ -5,10 +5,11 @@ import { settingsAPI } from '../utils/api';
 const isDesktopApp = typeof window !== 'undefined' && Boolean(window.electronAPI);
 
 function UpdateChecker() {
-  const [status, setStatus] = useState('idle'); // idle | checking | up-to-date | available | downloading | downloaded | error
+  const [status, setStatus] = useState('idle'); // idle | checking | up-to-date | available | downloading | installing | restarting | downloaded | error
   const [info, setInfo] = useState(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [installedSilently, setInstalledSilently] = useState(false);
 
   if (!isDesktopApp) return null;
 
@@ -39,16 +40,21 @@ function UpdateChecker() {
     setStatus('downloading');
     setProgress(0);
 
-    const unsubscribe = window.electronAPI.onDownloadProgress((percent) => setProgress(percent));
+    const unsubscribeProgress = window.electronAPI.onDownloadProgress((percent) => setProgress(percent));
+    const unsubscribeInstall = window.electronAPI.onInstallStatus((installStatus) => setStatus(installStatus));
 
     try {
-      await window.electronAPI.downloadAndInstall(asset);
-      setStatus('downloaded');
+      const result = await window.electronAPI.downloadAndInstall(asset);
+      setInstalledSilently(Boolean(result.installed));
+      // If installed silently, the app is about to relaunch (status already
+      // moved to "restarting"); otherwise the installer was just opened.
+      if (!result.installed) setStatus('downloaded');
     } catch (err) {
       setStatus('error');
       setError(err.message || 'Tải bản cập nhật thất bại');
     } finally {
-      unsubscribe();
+      unsubscribeProgress();
+      unsubscribeInstall();
     }
   };
 
@@ -109,10 +115,26 @@ function UpdateChecker() {
         </div>
       )}
 
+      {status === 'installing' && (
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <Loader2 size={16} className="animate-spin" />
+          Đang cài đặt — macOS sẽ hỏi mật khẩu Mac của bạn để cấp quyền cài, nhập vào popup hiện lên.
+        </div>
+      )}
+
+      {status === 'restarting' && (
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <Loader2 size={16} className="animate-spin" />
+          Cài xong, đang khởi động lại app...
+        </div>
+      )}
+
       {status === 'downloaded' && (
         <div className="text-sm text-emerald-600 flex items-center gap-2">
           <PartyPopper size={16} />
-          Đã mở trình cài đặt — làm theo hướng dẫn để hoàn tất, sau đó mở lại app.
+          {installedSilently
+            ? 'Đã cài xong, app sẽ tự khởi động lại.'
+            : 'Đã mở trình cài đặt — làm theo hướng dẫn để hoàn tất, sau đó mở lại app.'}
         </div>
       )}
     </div>

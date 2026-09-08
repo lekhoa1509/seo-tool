@@ -2,7 +2,10 @@ const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
+const { promisify } = require('util');
+
+const execFileAsync = promisify(execFile);
 
 const PORT = 4573;
 const UPDATE_REPO = 'lekhoa1509/seo-tool';
@@ -155,9 +158,42 @@ function registerUpdateHandlers() {
       event.sender.send('update:download-progress', percent);
     });
 
-    await shell.openPath(destPath);
-    return { path: destPath };
+    if (!destPath.endsWith('.pkg')) {
+      // Only .pkg supports the silent `installer` CLI below; anything else
+      // (e.g. .dmg) falls back to opening it for the user to install by hand.
+      await shell.openPath(destPath);
+      return { path: destPath, installed: false };
+    }
+
+    event.sender.send('update:install-status', 'installing');
+
+    try {
+      await installPkgSilently(destPath);
+    } catch (err) {
+      // User cancelled the password prompt, or the install failed. Fall back
+      // to just opening the installer so they can finish it by hand.
+      await shell.openPath(destPath);
+      throw new Error(`Cài ngầm thất bại (${err.message}). Đã mở trình cài đặt để bạn cài thủ công.`);
+    }
+
+    event.sender.send('update:install-status', 'restarting');
+    setTimeout(() => {
+      app.relaunch();
+      app.exit(0);
+    }, 800);
+
+    return { path: destPath, installed: true };
   });
+}
+
+async function installPkgSilently(pkgPath) {
+  // `installer -pkg ... -target /` needs root. Routing it through
+  // `osascript ... with administrator privileges` shows the native macOS
+  // password/Touch ID prompt (one click) instead of a Terminal window, and
+  // runs the installer with no GUI wizard (no Continue/Install/Close clicks).
+  const shellCommand = `installer -pkg ${JSON.stringify(pkgPath)} -target /`;
+  const appleScript = `do shell script ${JSON.stringify(shellCommand)} with administrator privileges`;
+  await execFileAsync('osascript', ['-e', appleScript]);
 }
 
 async function createWindow() {
