@@ -1,6 +1,123 @@
 import React, { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Save, Loader2, CheckCircle, Eraser } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Loader2, CheckCircle, Eraser, Download, RefreshCw, PartyPopper } from 'lucide-react';
 import { settingsAPI } from '../utils/api';
+
+const isDesktopApp = typeof window !== 'undefined' && Boolean(window.electronAPI);
+
+function UpdateChecker() {
+  const [status, setStatus] = useState('idle'); // idle | checking | up-to-date | available | downloading | downloaded | error
+  const [info, setInfo] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
+
+  if (!isDesktopApp) return null;
+
+  const handleCheck = async () => {
+    setStatus('checking');
+    setError('');
+
+    const result = await window.electronAPI.checkForUpdate();
+    setInfo(result);
+
+    if (!result.ok) {
+      setStatus('error');
+      setError(result.error || 'Không kiểm tra được bản cập nhật');
+      return;
+    }
+
+    setStatus(result.hasUpdate ? 'available' : 'up-to-date');
+  };
+
+  const handleDownload = async () => {
+    const asset = info?.pkg || info?.dmg;
+    if (!asset) {
+      setStatus('error');
+      setError('Không tìm thấy file cài đặt trong bản phát hành mới nhất');
+      return;
+    }
+
+    setStatus('downloading');
+    setProgress(0);
+
+    const unsubscribe = window.electronAPI.onDownloadProgress((percent) => setProgress(percent));
+
+    try {
+      await window.electronAPI.downloadAndInstall(asset);
+      setStatus('downloaded');
+    } catch (err) {
+      setStatus('error');
+      setError(err.message || 'Tải bản cập nhật thất bại');
+    } finally {
+      unsubscribe();
+    }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">Cập nhật ứng dụng</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Phiên bản hiện tại: {info?.current || '...'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleCheck}
+          disabled={status === 'checking' || status === 'downloading'}
+          className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2 disabled:opacity-60"
+        >
+          {status === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+          Kiểm tra cập nhật
+        </button>
+      </div>
+
+      {status === 'up-to-date' && (
+        <div className="text-sm text-emerald-600 flex items-center gap-2">
+          <CheckCircle size={16} /> Bạn đang dùng bản mới nhất ({info.current}).
+        </div>
+      )}
+
+      {status === 'error' && (
+        <div className="text-sm text-red-600">{error}</div>
+      )}
+
+      {status === 'available' && (
+        <div className="bg-primary-50 border border-primary-100 rounded-lg p-4 space-y-2">
+          <p className="text-sm text-primary-800 font-medium">
+            Có bản mới: v{info.latest} (đang dùng v{info.current})
+          </p>
+          {info.notes && (
+            <p className="text-xs text-slate-500 whitespace-pre-line line-clamp-4">{info.notes}</p>
+          )}
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="gradient-bg text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+          >
+            <Download size={16} /> Tải về &amp; cài đặt
+          </button>
+        </div>
+      )}
+
+      {status === 'downloading' && (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-600">Đang tải bản cập nhật... {progress}%</p>
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full gradient-bg transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {status === 'downloaded' && (
+        <div className="text-sm text-emerald-600 flex items-center gap-2">
+          <PartyPopper size={16} />
+          Đã mở trình cài đặt — làm theo hướng dẫn để hoàn tất, sau đó mở lại app.
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Settings() {
   const [fields, setFields] = useState([]);
@@ -86,6 +203,8 @@ export default function Settings() {
           {error}
         </div>
       )}
+
+      <UpdateChecker />
 
       <form onSubmit={handleSave} className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
         {fields.map((field) => (

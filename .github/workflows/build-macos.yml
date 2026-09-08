@@ -4,7 +4,10 @@ on:
   workflow_dispatch: {}
   push:
     tags:
-      - 'desktop-v*'
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -29,14 +32,22 @@ jobs:
         working-directory: frontend
 
       - name: Install desktop deps
-        run: npm install
+        run: npm ci
         working-directory: desktop
 
       - name: Build macOS app (.pkg + .dmg)
-        run: npx electron-builder --mac pkg dmg --publish never
+        # Only publish a GitHub Release when triggered by a version tag push;
+        # a manual "Run workflow" just builds artifacts to download.
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            npx electron-builder --mac pkg dmg --publish always
+          else
+            npx electron-builder --mac pkg dmg --publish never
+          fi
         working-directory: desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

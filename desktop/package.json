@@ -1,6 +1,6 @@
 {
   "name": "seo-tool-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "SEO Tool packaged as a native macOS app",
   "main": "main.js",
@@ -19,8 +19,14 @@
       "output": "dist"
     },
     "files": [
-      "main.js"
+      "main.js",
+      "preload.js"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "lekhoa1509",
+      "repo": "seo-tool"
+    },
     "extraResources": [
       {
         "from": "../backend",
