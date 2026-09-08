@@ -1,6 +1,6 @@
 {
   "name": "seo-tool-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "SEO Tool packaged as a native macOS app",
   "main": "main.js",
