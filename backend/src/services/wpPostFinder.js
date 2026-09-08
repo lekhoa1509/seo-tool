@@ -231,6 +231,88 @@ async function listWpPosts({
   return items.slice(0, limit);
 }
 
+const RELEVANT_POSTS_MAX_ITEMS = 300;
+const RELEVANT_POST_TITLE_WEIGHT = 3;
+const RELEVANT_POST_BODY_WEIGHT = 1;
+
+function splitSearchTerms(values = []) {
+  const terms = new Set();
+  values
+    .filter(Boolean)
+    .forEach((value) => {
+      const normalized = normalizeSearchText(value);
+      if (normalized.length < 3) return;
+      terms.add(normalized);
+      // Also index individual significant words so a multi-word topic still
+      // matches posts that only cover part of it.
+      normalized.split(' ').forEach((word) => {
+        if (word.length >= 4) terms.add(word);
+      });
+    });
+  return [...terms];
+}
+
+/**
+ * Finds existing published WordPress posts that are topically relevant to a
+ * new article being generated, so internal-link suggestions can point at
+ * real pages/URLs instead of AI-invented topics. Works with just a public
+ * site URL — no WordPress credentials required, since published posts are
+ * readable via the public REST API.
+ */
+export async function findRelevantWpPosts({
+  wpUrl,
+  wpUsername,
+  wpAppPassword,
+  topic = '',
+  keywords = [],
+  limit = 6,
+  maxItems = RELEVANT_POSTS_MAX_ITEMS,
+}) {
+  if (!wpUrl) return [];
+
+  const terms = splitSearchTerms([topic, ...keywords]);
+  if (!terms.length) return [];
+
+  const posts = await listWpPosts({
+    wpUrl,
+    wpUsername,
+    wpAppPassword,
+    maxItems,
+    status: 'publish',
+  });
+
+  const scored = posts
+    .map((post) => {
+      const normalizedTitle = normalizeSearchText(post.title);
+      const normalizedBody = normalizeSearchText(post.bodyText).slice(0, 4000);
+      const matchedTerms = new Set();
+      let score = 0;
+
+      terms.forEach((term) => {
+        if (normalizedTitle.includes(term)) {
+          score += RELEVANT_POST_TITLE_WEIGHT;
+          matchedTerms.add(term);
+        } else if (normalizedBody.includes(term)) {
+          score += RELEVANT_POST_BODY_WEIGHT;
+          matchedTerms.add(term);
+        }
+      });
+
+      return { post, score, matchedTerms: [...matchedTerms] };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(1, limit));
+
+  return scored.map(({ post, score, matchedTerms }) => ({
+    id: post.id,
+    title: post.title,
+    url: post.link,
+    score,
+    matchedTerms,
+  }));
+}
+
 export async function searchWpPosts({
   wpUrl,
   wpUsername,

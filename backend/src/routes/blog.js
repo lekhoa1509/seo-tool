@@ -11,6 +11,8 @@ import {
   syncProductTabs,
   validateProductTabCredentials,
 } from '../services/productTabs.js';
+import { findRelevantWpPosts } from '../services/wpPostFinder.js';
+import { analyzeArticleSeo } from '../services/seoAnalyzer.js';
 
 const router = Router();
 
@@ -131,6 +133,40 @@ function writeDone(res) {
   res.end();
 }
 
+async function fetchInternalLinkCandidates({ wpUrl, wpUsername, wpAppPassword, topic, keywords }) {
+  if (!wpUrl) return { candidates: [], error: null };
+
+  try {
+    const candidates = await findRelevantWpPosts({
+      wpUrl,
+      wpUsername,
+      wpAppPassword,
+      topic,
+      keywords,
+      limit: 6,
+    });
+    return { candidates, error: null };
+  } catch (err) {
+    console.error('Internal link candidate lookup error:', err);
+    return { candidates: [], error: err.message };
+  }
+}
+
+function buildInternalLinkGuidance(linkCandidates = []) {
+  if (!linkCandidates.length) {
+    return 'No internal link targets were provided. Do not insert any <a href> links pointing to this site — leave "usedInternalLinks" as an empty array.';
+  }
+
+  const list = linkCandidates
+    .map((item, i) => `${i + 1}. "${item.title}" -> ${item.url}`)
+    .join('\n');
+
+  return `AVAILABLE INTERNAL LINK TARGETS (real, existing pages on this site):
+${list}
+
+Naturally weave 2-5 of the most relevant ones into the body as inline <a href="EXACT_URL_FROM_LIST">natural anchor text</a> links, only where genuinely relevant to the surrounding sentence — do not force irrelevant links, and never invent a URL that is not in this list. List every link you actually inserted in "usedInternalLinks".`;
+}
+
 function buildArticlePrompts({
   topic,
   keywords,
@@ -140,6 +176,7 @@ function buildArticlePrompts({
   contentType,
   targetAudience,
   includeOutline,
+  linkCandidates = [],
 }) {
   const mode = getContentMode(contentType);
   const primaryKeyword = keywords[0] || topic;
@@ -163,6 +200,8 @@ Requirements:
 
 Content mode guidance:
 ${mode.writingGuidance.map((item) => `- ${item}`).join('\n')}
+
+${buildInternalLinkGuidance(linkCandidates)}
 
 Return JSON with this exact structure:
 {
@@ -194,7 +233,7 @@ Return JSON with this exact structure:
     "keywords": "keyword1, keyword2"
   },
   "seoTips": ["SEO recommendation 1", "SEO recommendation 2"],
-  "internalLinkSuggestions": ["Topic for related article 1", "Topic for related article 2"],
+  "usedInternalLinks": [{ "title": "Real post title used", "url": "Exact URL from the provided list" }],
   "imageBrief": "Short visual brief for a featured image",
   "wordCount": ${wordCount}
 }`;
@@ -312,9 +351,20 @@ router.post('/generate', async (req, res) => {
       targetAudience = 'general',
       includeOutline = true,
       includeImages = false,
+      wpUrl,
+      wpUsername,
+      wpAppPassword,
     } = req.body;
 
     if (!topic) return res.status(400).json({ error: 'topic is required' });
+
+    const { candidates: linkCandidates, error: linkFetchError } = await fetchInternalLinkCandidates({
+      wpUrl,
+      wpUsername,
+      wpAppPassword,
+      topic,
+      keywords,
+    });
 
     const { systemPrompt, userPrompt, mode } = buildArticlePrompts({
       topic,
@@ -325,6 +375,7 @@ router.post('/generate', async (req, res) => {
       contentType,
       targetAudience,
       includeOutline,
+      linkCandidates,
     });
 
     const { data: article, model } = await jsonCompletion(systemPrompt, userPrompt, {
@@ -338,6 +389,16 @@ router.post('/generate', async (req, res) => {
       contentType: mode.value,
       contentModel: model,
       imageRequested: parseBoolean(includeImages),
+      internalLinkCandidates: linkCandidates,
+      internalLinkFetchError: linkFetchError,
+      seoAnalysis: analyzeArticleSeo({
+        html: article.content,
+        title: article.title,
+        metaDescription: article.metaDescription,
+        focusKeyword: article.focusKeyword,
+        targetWordCount: wordCount,
+        linkCandidateUrls: linkCandidates.map((c) => c.url),
+      }),
     };
 
     if (parseBoolean(includeImages)) {
@@ -376,6 +437,9 @@ router.post('/generate-stream', async (req, res) => {
       targetAudience = 'general',
       includeOutline = true,
       includeImages = false,
+      wpUrl,
+      wpUsername,
+      wpAppPassword,
     } = req.body;
 
     if (!topic) {
@@ -387,17 +451,6 @@ router.post('/generate-stream', async (req, res) => {
     const totalSteps = wantsImages ? 2 : 1;
     const totalImages = wantsImages ? 1 : 0;
     const startedAt = Date.now();
-
-    const { systemPrompt, userPrompt, mode } = buildArticlePrompts({
-      topic,
-      keywords,
-      tone,
-      language,
-      wordCount,
-      contentType,
-      targetAudience,
-      includeOutline,
-    });
 
     startSse(res);
 
@@ -417,6 +470,34 @@ router.post('/generate-stream', async (req, res) => {
     };
 
     res.once('close', stopProgress);
+
+    if (wpUrl) {
+      writeStatus({
+        status: 'content-queued',
+        phase: 'content',
+        message: 'Đang tìm bài viết liên quan trên WordPress để gợi ý internal link',
+      });
+    }
+
+    const { candidates: linkCandidates, error: linkFetchError } = await fetchInternalLinkCandidates({
+      wpUrl,
+      wpUsername,
+      wpAppPassword,
+      topic,
+      keywords,
+    });
+
+    const { systemPrompt, userPrompt, mode } = buildArticlePrompts({
+      topic,
+      keywords,
+      tone,
+      language,
+      wordCount,
+      contentType,
+      targetAudience,
+      includeOutline,
+      linkCandidates,
+    });
 
     writeStatus({
       status: 'content-queued',
@@ -445,6 +526,16 @@ router.post('/generate-stream', async (req, res) => {
       contentType: mode.value,
       contentModel: model,
       imageRequested: wantsImages,
+      internalLinkCandidates: linkCandidates,
+      internalLinkFetchError: linkFetchError,
+      seoAnalysis: analyzeArticleSeo({
+        html: article.content,
+        title: article.title,
+        metaDescription: article.metaDescription,
+        focusKeyword: article.focusKeyword,
+        targetWordCount: wordCount,
+        linkCandidateUrls: linkCandidates.map((c) => c.url),
+      }),
     };
 
     writeStatus({

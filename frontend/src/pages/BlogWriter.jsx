@@ -578,6 +578,88 @@ function ProductTabsSyncPanel() {
   );
 }
 
+const SEO_CHECK_STATUS = {
+  pass: { icon: CheckCircle, className: 'text-emerald-600 bg-emerald-50' },
+  warn: { icon: AlertTriangle, className: 'text-amber-600 bg-amber-50' },
+  fail: { icon: X, className: 'text-red-600 bg-red-50' },
+  skip: { icon: Clock, className: 'text-slate-400 bg-slate-50' },
+};
+
+function scoreColor(score) {
+  if (score >= 80) return 'text-emerald-600';
+  if (score >= 50) return 'text-amber-500';
+  return 'text-red-500';
+}
+
+function SeoScoreCard({ seoAnalysis }) {
+  if (!seoAnalysis) return null;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-slate-800">Điểm SEO on-page (tính thực tế từ nội dung)</h3>
+        <span className={`text-2xl font-bold ${scoreColor(seoAnalysis.score)}`}>{seoAnalysis.score}/100</span>
+      </div>
+      <div className="space-y-2">
+        {seoAnalysis.checklist.map((item) => {
+          const config = SEO_CHECK_STATUS[item.status] || SEO_CHECK_STATUS.skip;
+          const Icon = config.icon;
+          return (
+            <div key={item.id} className="flex items-start gap-3 rounded-lg border border-slate-100 px-3 py-2">
+              <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full ${config.className}`}>
+                <Icon size={13} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-700">{item.label}</p>
+                <p className="text-xs text-slate-500">{item.detail}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function InternalLinksCard({ usedInternalLinks, candidates, fetchError }) {
+  if (!fetchError && !candidates?.length) return null;
+
+  return (
+    <div className="card p-5">
+      <h3 className="font-semibold text-slate-800 mb-3">Internal link từ bài viết thật trên WordPress</h3>
+
+      {fetchError && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 mb-3">
+          <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+          Không lấy được bài viết trên WordPress để gợi ý internal link: {fetchError}
+        </div>
+      )}
+
+      {usedInternalLinks?.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs text-slate-500">Đã tự chèn {usedInternalLinks.length} link vào nội dung:</p>
+          {usedInternalLinks.map((link, i) => (
+            <a
+              key={i}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:underline break-all"
+            >
+              <ExternalLink size={12} className="flex-shrink-0" />
+              {link.title || link.url}
+            </a>
+          ))}
+        </div>
+      ) : candidates?.length > 0 ? (
+        <p className="text-sm text-slate-500">
+          Tìm thấy {candidates.length} bài viết liên quan nhưng AI không thấy đủ phù hợp để chèn link. Xem thêm: {candidates.slice(0, 3).map((c) => c.title).join(', ')}.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function BlogWriter() {
   const [form, setForm] = useState({
     topic: '',
@@ -667,7 +749,13 @@ export default function BlogWriter() {
       const response = await fetch(`${apiBase}/api/blog/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, keywords: validKeywords }),
+        body: JSON.stringify({
+          ...form,
+          keywords: validKeywords,
+          wpUrl: wpForm.url,
+          wpUsername: wpForm.username,
+          wpAppPassword: wpForm.appPassword,
+        }),
       });
 
       if (!response.ok) {
@@ -1143,6 +1231,13 @@ export default function BlogWriter() {
               Gợi ý tiêu đề
             </button>
           </div>
+
+          <p className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Sparkles size={12} className="flex-shrink-0" />
+            {wpForm.url
+              ? `Sẽ tự tìm bài viết liên quan trên ${wpForm.url} để chèn internal link thật.`
+              : 'Kết nối WordPress (nút "Đăng WordPress") để bài viết tự chèn internal link tới bài thật trên site.'}
+          </p>
         </form>
       </div>
 
@@ -1286,6 +1381,14 @@ export default function BlogWriter() {
 
           {activeTab === 'meta' && (
             <div className="space-y-4">
+              <SeoScoreCard seoAnalysis={data.seoAnalysis} />
+
+              <InternalLinksCard
+                usedInternalLinks={data.usedInternalLinks}
+                candidates={data.internalLinkCandidates}
+                fetchError={data.internalLinkFetchError}
+              />
+
               <div className="card p-5">
                 <h3 className="font-semibold text-slate-800 mb-4">SEO Meta Tags</h3>
                 <div className="space-y-3">
