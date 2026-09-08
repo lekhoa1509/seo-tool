@@ -25,7 +25,8 @@
     "publish": {
       "provider": "github",
       "owner": "lekhoa1509",
-      "repo": "seo-tool"
+      "repo": "seo-tool",
+      "releaseType": "release"
     },
     "extraResources": [
       {
